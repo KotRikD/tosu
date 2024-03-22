@@ -155,8 +155,25 @@ export class OsuInstance {
         this.isTourneySpectator = newVal;
     }
 
+    private scan(buffer: Buffer, signature: Buffer) {
+        for (let i = 0; i <= buffer.length - signature.length; i++) {
+            let match = true;
+            for (let j = 0; j < signature.length; j++) {
+                if (signature[j] !== 0x00 && buffer[i + j] !== signature[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     async start() {
         wLogger.info(`[${this.pid}] Running memory chimera..`);
+
         while (!this.isReady) {
             const patternsRepo = this.entities.get('patterns');
             if (!patternsRepo) {
@@ -168,35 +185,56 @@ export class OsuInstance {
             try {
                 const total = Object.keys(SCAN_PATTERNS).length;
                 let completed = 0;
-                for (const baseKey in SCAN_PATTERNS) {
-                    const s1 = performance.now();
-                    const patternValue = this.process.scanSync(
-                        SCAN_PATTERNS[baseKey].pattern,
-                        true
-                    );
-                    completed += 1;
-                    if (patternValue === 0) {
-                        updateProgressBar(
-                            `[${this.pid}] Scanning`,
-                            completed / total,
-                            `${(performance.now() - s1).toFixed(
-                                2
-                            )}ms ${baseKey}`
-                        );
-                        continue;
+
+                this.process.scanRegions(
+                    (baseAddress: number, region: Buffer) => {
+                        for (const baseKey in SCAN_PATTERNS) {
+                            if (
+                                patternsRepo.getPattern(baseKey as never) !== 0
+                            ) {
+                                continue;
+                            }
+
+                            const s1 = performance.now();
+
+                            const pattern = Buffer.from(
+                                SCAN_PATTERNS[baseKey].pattern
+                                    .split(' ')
+                                    .map((x: string) => (x === '??' ? '00' : x))
+                                    .join(''),
+                                'hex'
+                            );
+
+                            const patternValue = this.scan(region, pattern);
+
+                            if (patternValue === 0) {
+                                updateProgressBar(
+                                    `[${this.pid}] Scanning`,
+                                    completed / total,
+                                    `${(performance.now() - s1).toFixed(
+                                        2
+                                    )}ms ${baseKey}`
+                                );
+                                continue;
+                            }
+
+                            completed += 1;
+
+                            patternsRepo.setPattern(
+                                baseKey as never,
+                                baseAddress +
+                                    patternValue +
+                                    (SCAN_PATTERNS[baseKey].offset || 0)
+                            );
+
+                            updateProgressBar(
+                                `[${this.pid}] Scanning`,
+                                completed / total,
+                                `${(performance.now() - s1).toFixed(2)}ms ${baseKey}`
+                            );
+                        }
                     }
-
-                    patternsRepo.setPattern(
-                        baseKey as never,
-                        patternValue + (SCAN_PATTERNS[baseKey].offset || 0)
-                    );
-
-                    updateProgressBar(
-                        `[${this.pid}] Scanning`,
-                        completed / total,
-                        `${(performance.now() - s1).toFixed(2)}ms ${baseKey}`
-                    );
-                }
+                );
 
                 if (!patternsRepo.checkIsBasesValid()) {
                     throw new Error('Memory resolve failed');

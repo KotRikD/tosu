@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <Psapi.h>
 // clang-format on
+#include <functional>
 #include <string>
 #include <tlhelp32.h>
 #include <vector>
@@ -108,6 +109,28 @@ inline DWORD find_pattern(HANDLE process, const std::vector<uint8_t> signature,
   return 0;
 }
 
+inline void scan_regions(
+    HANDLE process,
+    std::function<void(uintptr_t, std::vector<uint8_t>)>
+        on_new_region) {
+  MEMORY_BASIC_INFORMATION mbi;
+
+  for (uint8_t *p = nullptr; VirtualQueryEx(process, p, &mbi, sizeof(mbi)) != 0;
+       p += mbi.RegionSize) {
+    if (mbi.Protect != PAGE_EXECUTE_READWRITE && mbi.Protect != PAGE_READWRITE) {
+      continue;
+    }
+    
+    auto regionSize = mbi.RegionSize;
+    auto regionAddress = (uintptr_t)mbi.BaseAddress;
+    auto buffer = std::vector<uint8_t>(regionSize);
+    ReadProcessMemory(process, (void *)regionAddress, buffer.data(), regionSize,
+                      0);
+
+    on_new_region(regionAddress, buffer);
+  }
+}
+
 inline std::vector<uint32_t> find_processes(const std::string &process_name) {
   PROCESSENTRY32 processEntry;
   processEntry.dwSize = sizeof(PROCESSENTRY32);
@@ -147,53 +170,47 @@ inline std::string get_process_path(HANDLE handle) {
   return filePath;
 }
 
-inline std::wstring get_proc_command_line(HANDLE process)
-{
-    std::wstring commandLine;
+inline std::wstring get_proc_command_line(HANDLE process) {
+  std::wstring commandLine;
 
-    // Get the address of the PEB
-    PROCESS_BASIC_INFORMATION pbi = {};
-    NTSTATUS status = NtQueryInformationProcess(process, ProcessBasicInformation, &pbi, sizeof(pbi), NULL);
-    if (status != 0)
-    {
-        std::cerr << "failed to query the process, error: " << status << std::endl;
-    }
-    else
-    {
-        // Get the address of the process parameters in the PEB
-        PEB peb = {};
-        if (!ReadProcessMemory(process, pbi.PebBaseAddress, &peb, sizeof(peb), NULL))
-        {
-            DWORD err = GetLastError();
-            std::cerr << "failed to read the process PEB, error: " << err << std::endl;
+  // Get the address of the PEB
+  PROCESS_BASIC_INFORMATION pbi = {};
+  NTSTATUS status = NtQueryInformationProcess(process, ProcessBasicInformation,
+                                              &pbi, sizeof(pbi), NULL);
+  if (status != 0) {
+    std::cerr << "failed to query the process, error: " << status << std::endl;
+  } else {
+    // Get the address of the process parameters in the PEB
+    PEB peb = {};
+    if (!ReadProcessMemory(process, pbi.PebBaseAddress, &peb, sizeof(peb),
+                           NULL)) {
+      DWORD err = GetLastError();
+      std::cerr << "failed to read the process PEB, error: " << err
+                << std::endl;
+    } else {
+      // Get the command line arguments from the process parameters
+      RTL_USER_PROCESS_PARAMETERS params = {};
+      if (!ReadProcessMemory(process, peb.ProcessParameters, &params,
+                             sizeof(params), NULL)) {
+        DWORD err = GetLastError();
+        std::cerr << "failed to read the process params, error: " << err
+                  << std::endl;
+      } else {
+        UNICODE_STRING &commandLineArgs = params.CommandLine;
+        std::vector<WCHAR> buffer(commandLineArgs.Length / sizeof(WCHAR));
+        if (!ReadProcessMemory(process, commandLineArgs.Buffer, buffer.data(),
+                               commandLineArgs.Length, NULL)) {
+          DWORD err = GetLastError();
+          std::cerr << "failed to read the process command line, error: " << err
+                    << std::endl;
+        } else {
+          commandLine.assign(buffer.data(), buffer.size());
         }
-        else
-        {
-            // Get the command line arguments from the process parameters
-            RTL_USER_PROCESS_PARAMETERS params = {};
-            if (!ReadProcessMemory(process, peb.ProcessParameters, &params, sizeof(params), NULL))
-            {
-                DWORD err = GetLastError();
-                std::cerr << "failed to read the process params, error: " << err << std::endl;
-            }
-            else
-            {
-                UNICODE_STRING &commandLineArgs = params.CommandLine;
-                std::vector<WCHAR> buffer(commandLineArgs.Length / sizeof(WCHAR));
-                if (!ReadProcessMemory(process, commandLineArgs.Buffer, buffer.data(), commandLineArgs.Length, NULL))
-                {
-                    DWORD err = GetLastError();
-                    std::cerr << "failed to read the process command line, error: " << err << std::endl;
-                }
-                else
-                {
-                    commandLine.assign(buffer.data(), buffer.size());
-                }
-            }
-        }
+      }
     }
+  }
 
-    return commandLine;
+  return commandLine;
 }
 
 } // namespace memory

@@ -4,6 +4,7 @@ dist/
 node_modules
 yarn-error.log
 static/
+.clangd
 package-lock.json
 config.ini
 tosu.exe
