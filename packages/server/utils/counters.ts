@@ -59,7 +59,7 @@ export function parseTXT(filePath: string) {
         if (key == null || value == null) continue;
         value = value.split('##')[0].replace(/\r/, '').replace(':', '');
 
-        if (/[0-9-]+x[0-9-]+/.test(value)) {
+        if (/[0-9 ]+x[ 0-9-]+/.test(value)) {
             object[key.toLowerCase()] = value.split('x');
         } else object[key.toLowerCase()] = value.trim();
     }

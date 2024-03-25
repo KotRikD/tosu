@@ -24,8 +24,15 @@ export const updateProgressBar = (
     );
 
     if (progress === 1) {
-        process.stdout.clearLine(0);
-        process.stdout.cursorTo(0);
+        if (
+            typeof process.stdout.clearLine === 'function' &&
+            typeof process.stdout.cursorTo === 'function'
+        ) {
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+        } else {
+            process.stdout.write('\n');
+        }
     }
 };
 
