@@ -86,6 +86,10 @@ export class Process {
         return ProcessUtils.readBuffer(this.handle, address, size);
     }
 
+    scanRegions(callback: (baseAddress: number, region: Buffer) => void) {
+        ProcessUtils.scanRegions(this.handle, callback);
+    }
+
     scanSync(
         pattern: string,
         refresh: boolean = false,

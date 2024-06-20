@@ -1,8 +1,10 @@
 #include "process.h"
+#include <functional>
 #include <memory>
 #include <napi.h>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
 template <typename... Args>
@@ -94,7 +96,8 @@ Napi::Value readUInt(const Napi::CallbackInfo &args) {
   auto address = args[1].As<Napi::Number>().Uint32Value();
   auto result = memory::read<uint32_t>(handle, address);
   if (!std::get<1>(result)) {
-    Napi::TypeError::New(env, string_format("Couldn't read uint at %x", address))
+    Napi::TypeError::New(env,
+                         string_format("Couldn't read uint at %x", address))
         .ThrowAsJavaScriptException();
     return env.Null();
   }
@@ -227,6 +230,28 @@ Napi::Value readBuffer(const Napi::CallbackInfo &args) {
   return out;
 }
 
+Napi::Value scanRegions(const Napi::CallbackInfo &args) {
+  Napi::Env env = args.Env();
+  if (args.Length() < 2) {
+    Napi::TypeError::New(env, "Wrong number of arguments")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+
+  auto handle =
+      reinterpret_cast<HANDLE>(args[0].As<Napi::Number>().Int32Value());
+  auto callback = args[1].As<Napi::Function>();
+
+  memory::scan_regions(
+      handle, [&](uintptr_t baseAddress, std::vector<uint8_t> region) -> void {
+        callback.Call({Napi::Number::From(env, baseAddress),
+                       Napi::Buffer<char>::Copy(env, (char *)region.data(),
+                                                region.size())});
+      });
+
+  return env.Undefined();
+}
+
 static bool scanning = false;
 
 Napi::Value scan(const Napi::CallbackInfo &args) {
@@ -258,10 +283,11 @@ Napi::Value scan(const Napi::CallbackInfo &args) {
 
           auto res = memory::find_pattern(handle, vec, refresh, baseAddress);
           scanning = false;
-          tsfn.BlockingCall([res, tsfn](Napi::Env env, Napi::Function jsCallback) {
-            jsCallback.Call({Napi::Number::From(env, res)});
-            tsfn.Release(); // Release the callback after usage
-          });
+          tsfn.BlockingCall(
+              [res, tsfn](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({Napi::Number::From(env, res)});
+                tsfn.Release(); // Release the callback after usage
+              });
         },
         callback)
         .detach();
@@ -376,11 +402,12 @@ Napi::Value getProcessCommandLine(const Napi::CallbackInfo &args) {
   }
 
   auto handle =
-    reinterpret_cast<HANDLE>(args[0].As<Napi::Number>().Uint32Value());
+      reinterpret_cast<HANDLE>(args[0].As<Napi::Number>().Uint32Value());
 
   std::wstring commandLine = memory::get_proc_command_line(handle);
 
-  return Napi::String::New(env, reinterpret_cast<const char16_t*>(commandLine.c_str()));
+  return Napi::String::New(
+      env, reinterpret_cast<const char16_t *>(commandLine.c_str()));
 }
 
 Napi::Value readCSharpString(const Napi::CallbackInfo &args) {
@@ -401,21 +428,25 @@ Napi::Value readCSharpString(const Napi::CallbackInfo &args) {
 
   // Read the C# string length
   int stringLength;
-  if (!ReadProcessMemory(handle, reinterpret_cast<LPCVOID>(address + sizeof(int)), &stringLength, sizeof(stringLength), NULL)) {
+  if (!ReadProcessMemory(handle,
+                         reinterpret_cast<LPCVOID>(address + sizeof(int)),
+                         &stringLength, sizeof(stringLength), NULL)) {
     Napi::TypeError::New(env, "Can't read C# string length")
         .ThrowAsJavaScriptException();
     return env.Null();
   }
-  
+
   if (stringLength <= 0 || stringLength >= 4096) {
     return Napi::String::New(env, "");
   }
 
   // Allocate buffer for the string data
-  wchar_t* stringBuffer = new wchar_t[stringLength];
+  wchar_t *stringBuffer = new wchar_t[stringLength];
 
   // Read the C# string data
-  if (!ReadProcessMemory(handle, reinterpret_cast<LPCVOID>(address + sizeof(int) * 2), stringBuffer, stringLength * sizeof(wchar_t), NULL)) {
+  if (!ReadProcessMemory(handle,
+                         reinterpret_cast<LPCVOID>(address + sizeof(int) * 2),
+                         stringBuffer, stringLength * sizeof(wchar_t), NULL)) {
     std::cout << stringLength << std::endl;
     delete[] stringBuffer;
     Napi::TypeError::New(env, "Can't read C# string data")
@@ -424,7 +455,8 @@ Napi::Value readCSharpString(const Napi::CallbackInfo &args) {
   }
 
   // Convert the wide string to a JavaScript string
-  Napi::Value result = Napi::String::New(env, reinterpret_cast<const char16_t*>(stringBuffer), stringLength);
+  Napi::Value result = Napi::String::New(
+      env, reinterpret_cast<const char16_t *>(stringBuffer), stringLength);
 
   // Clean up
   delete[] stringBuffer;
@@ -449,7 +481,9 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
   exports["getProcesses"] = Napi::Function::New(env, getProcesses);
   exports["isProcessExist"] = Napi::Function::New(env, isProcessExist);
   exports["getProcessPath"] = Napi::Function::New(env, getProcessPath);
-  exports["getProcessCommandLine"] = Napi::Function::New(env, getProcessCommandLine);
+  exports["getProcessCommandLine"] =
+      Napi::Function::New(env, getProcessCommandLine);
+  exports["scanRegions"] = Napi::Function::New(env, scanRegions);
 
   return exports;
 }
