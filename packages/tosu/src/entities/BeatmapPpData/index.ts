@@ -388,28 +388,28 @@ export class BeatmapPPData extends AbstractEntity {
                     updateWithOffset('flashlight', strains.flashlight);
                     updateWithOffset('speed', strains.speed);
 
-                    if (Array.isArray(strains.aim))
-                        oldStrains.push(...strains.aim);
+                    if (strains.aim instanceof Float64Array)
+                        oldStrains = Array.from(strains.aim);
                     break;
                 case 1:
                     updateWithOffset('color', strains.color);
                     updateWithOffset('rhythm', strains.rhythm);
                     updateWithOffset('stamina', strains.stamina);
 
-                    if (Array.isArray(strains.color))
-                        oldStrains.push(...strains.color);
+                    if (strains.color instanceof Float64Array)
+                        oldStrains = Array.from(strains.color);
                     break;
                 case 2:
                     updateWithOffset('movement', strains.movement);
 
-                    if (Array.isArray(strains.movement))
-                        oldStrains.push(...strains.movement);
+                    if (strains.movement instanceof Float64Array)
+                        oldStrains = Array.from(strains.movement);
                     break;
                 case 3:
                     updateWithOffset('strains', strains.strains);
 
-                    if (Array.isArray(strains.strains))
-                        oldStrains.push(...strains.strains);
+                    if (strains.strains instanceof Float64Array)
+                        oldStrains = Array.from(strains.strains);
                     break;
                 default:
                 // no-default
