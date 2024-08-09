@@ -1,9 +1,8 @@
-const regex = /(?:--|-)(?<name>[^=\s]+)(?:[= ](?<value>(?!--|-)\S*))?/g;
-
 export const argumetsParser = (argumentsString: string[] | string) => {
     const args: { [key: string]: any } = {};
 
     if (typeof argumentsString === 'string') {
+        const regex = /(?:--|-)(?<name>[^=\s]+)(?:[= ](?<value>(?!--|-)\S*))?/g;
         const matches = [...argumentsString.matchAll(regex)];
         matches.forEach((match) => {
             const name = match?.groups?.name || '';
@@ -18,6 +17,7 @@ export const argumetsParser = (argumentsString: string[] | string) => {
         return args;
     }
 
+    const regex = /(?:--|-)(?<name>[^=\s]+)(?:[= ](?<value>(?!--|-)\S*))?/;
     for (let i = 0; i < argumentsString.length; i++) {
         const arg = argumentsString[i];
 

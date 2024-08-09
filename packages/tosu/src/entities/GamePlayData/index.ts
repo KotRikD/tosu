@@ -156,12 +156,14 @@ export class GamePlayData extends AbstractEntity {
 
     updateState() {
         try {
-            const { process, patterns, menuData } =
+            const { process, patterns, allTimesData, beatmapPpData, menuData } =
                 this.osuInstance.getServices([
                     'process',
                     'patterns',
                     'allTimesData',
-                    'menuData'
+                    'menuData',
+                    'allTimesData',
+                    'beatmapPpData'
                 ]);
 
             const { baseAddr, rulesetsAddr } = patterns.getPatterns([
@@ -213,24 +215,8 @@ export class GamePlayData extends AbstractEntity {
                 process.readInt(process.readInt(scoreBase + 0x1c) + 0x8);
             // [[Ruleset + 0x68] + 0x38] + 0x64
             this.Mode = process.readInt(scoreBase + 0x64);
-            // [[Ruleset + 0x68] + 0x38] + 0x68
-            this.MaxCombo = process.readShort(scoreBase + 0x68);
             // [[Ruleset + 0x68] + 0x38] + 0x78
             this.Score = process.readInt(rulesetAddr + 0x100);
-            // [[Ruleset + 0x68] + 0x38] + 0x88
-            this.Hit100 = process.readShort(scoreBase + 0x88);
-            // [[Ruleset + 0x68] + 0x38] + 0x8A
-            this.Hit300 = process.readShort(scoreBase + 0x8a);
-            // [[Ruleset + 0x68] + 0x38] + 0x8C
-            this.Hit50 = process.readShort(scoreBase + 0x8c);
-            // [[Ruleset + 0x68] + 0x38] + 0x8E
-            this.HitGeki = process.readShort(scoreBase + 0x8e);
-            // [[Ruleset + 0x68] + 0x38] + 0x90
-            this.HitKatu = process.readShort(scoreBase + 0x90);
-            // [[Ruleset + 0x68] + 0x38] + 0x92
-            this.HitMiss = process.readShort(scoreBase + 0x92);
-            // [[Ruleset + 0x68] + 0x38] + 0x94
-            this.Combo = process.readShort(scoreBase + 0x94);
             // [[Ruleset + 0x68] + 0x40] + 0x14
             this.PlayerHPSmooth = process.readDouble(hpBarBase + 0x14) || 0;
             // [[Ruleset + 0x68] + 0x40] + 0x1C
@@ -239,6 +225,25 @@ export class GamePlayData extends AbstractEntity {
             this.Accuracy = process.readDouble(
                 process.readInt(gameplayBase + 0x48) + 0xc
             );
+
+            if (allTimesData.PlayTime >= beatmapPpData.timings.firstObj - 100) {
+                // [[Ruleset + 0x68] + 0x38] + 0x88
+                this.Hit100 = process.readShort(scoreBase + 0x88);
+                // [[Ruleset + 0x68] + 0x38] + 0x8A
+                this.Hit300 = process.readShort(scoreBase + 0x8a);
+                // [[Ruleset + 0x68] + 0x38] + 0x8C
+                this.Hit50 = process.readShort(scoreBase + 0x8c);
+                // [[Ruleset + 0x68] + 0x38] + 0x8E
+                this.HitGeki = process.readShort(scoreBase + 0x8e);
+                // [[Ruleset + 0x68] + 0x38] + 0x90
+                this.HitKatu = process.readShort(scoreBase + 0x90);
+                // [[Ruleset + 0x68] + 0x38] + 0x92
+                this.HitMiss = process.readShort(scoreBase + 0x92);
+                // [[Ruleset + 0x68] + 0x38] + 0x94
+                this.Combo = process.readShort(scoreBase + 0x94);
+                // [[Ruleset + 0x68] + 0x38] + 0x68
+                this.MaxCombo = process.readShort(scoreBase + 0x68);
+            }
 
             if (this.MaxCombo > 0) {
                 const baseUR = this.calculateUR();
@@ -303,11 +308,12 @@ export class GamePlayData extends AbstractEntity {
 
             const keyOverlayPtr = process.readUInt(rulesetAddr + 0xb0);
             if (keyOverlayPtr === 0) {
-                wLogger.debug(
-                    `GD(updateKeyOverlay) keyOverlayPtr is zero [${keyOverlayPtr}] (${rulesetAddr}  -  ${patterns.getPattern(
-                        'rulesetsAddr'
-                    )})`
-                );
+                if (this.Mode !== 3 && this.Mode !== 1)
+                    wLogger.debug(
+                        `GD(updateKeyOverlay) keyOverlayPtr is zero [${keyOverlayPtr}] (${rulesetAddr}  -  ${patterns.getPattern(
+                            'rulesetsAddr'
+                        )})`
+                    );
                 return;
             }
 

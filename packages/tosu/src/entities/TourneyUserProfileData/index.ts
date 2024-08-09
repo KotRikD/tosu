@@ -31,8 +31,6 @@ export class TourneyUserProfileData extends AbstractEntity {
     }
 
     updateState() {
-        wLogger.debug('TUPD(updateState) Starting');
-
         const { process, gamePlayData, patterns } =
             this.osuInstance.getServices([
                 'process',
@@ -47,7 +45,8 @@ export class TourneyUserProfileData extends AbstractEntity {
             wLogger.debug('TUPD(updateState) Slot is not equiped');
 
             this.resetState();
-            gamePlayData.init(undefined, 'tourney');
+            if (gamePlayData.isDefaultState !== true)
+                gamePlayData.init(undefined, 'tourney');
             return;
         }
 
@@ -86,7 +85,5 @@ export class TourneyUserProfileData extends AbstractEntity {
             );
             wLogger.debug(exc);
         }
-
-        wLogger.debug('TUPD(updateState) updated');
     }
 }

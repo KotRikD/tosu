@@ -384,7 +384,10 @@ export class OsuInstance {
                         break;
 
                     default:
-                        gamePlayData.init(undefined, 'default');
+                        gamePlayData.init(
+                            undefined,
+                            `default-${allTimesData.Status}`
+                        );
                         resultsScreenData.init();
                         break;
                 }
