@@ -63,3 +63,17 @@ export function getProgramPath() {
     if ('pkg' in process) return path.dirname(process.execPath);
     return process.cwd();
 }
+
+export function getSettingsPath(folderName: string) {
+    if (!folderName) return '';
+
+    const settingsFolderPath = path.join(getProgramPath(), 'settings');
+    if (!fs.existsSync(settingsFolderPath))
+        fs.mkdirSync(settingsFolderPath, { recursive: true });
+
+    const folderPath = path.join(
+        settingsFolderPath,
+        `${folderName}.values.json`
+    );
+    return folderPath;
+}

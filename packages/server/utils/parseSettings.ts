@@ -1,4 +1,9 @@
-import { JsonSafeParse, getStaticPath, wLogger } from '@tosu/common';
+import {
+    JsonSafeParse,
+    getSettingsPath,
+    getStaticPath,
+    wLogger
+} from '@tosu/common';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,13 +20,24 @@ export function parseCounterSettings(
         decodeURI(folderName),
         'settings.json'
     );
-    const settingsValuesPath = path.join(
+    const settingsValuesPath = getSettingsPath(decodeURI(folderName));
+    const legacySettingsValuesPath = path.join(
         staticPath,
         decodeURI(folderName),
         'settings.values.json'
     );
 
     try {
+        // copy legacy settings instead of moving/renaming, because some could have their static folder on other drive
+        if (fs.existsSync(legacySettingsValuesPath)) {
+            // wLogger.warn('counter-settings', 'copied legacy settings to new folder', decodeURI(folderName));
+            fs.copyFileSync(legacySettingsValuesPath, settingsValuesPath);
+            fs.renameSync(
+                legacySettingsValuesPath,
+                legacySettingsValuesPath.replace('values', 'old-values')
+            );
+        }
+
         if (!fs.existsSync(settingsPath))
             fs.writeFileSync(settingsPath, JSON.stringify([]), 'utf8');
 
