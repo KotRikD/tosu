@@ -696,6 +696,7 @@ const optionHTML = `
     </div>
     <select class="{class}" id="{ID}___type">
       <option {text_SELECTED} value="text">Text</option>
+      <option {textarea_SELECTED} value="textarea">Text area</option>
       <option {number_SELECTED} value="number">Number</option>
       <option {color_SELECTED} value="color">Color</option>
       <option {checkbox_SELECTED} value="checkbox">Toggle</option>
@@ -768,9 +769,11 @@ async function startBuilderModal(element) {
     .replace("{ADDON}", `onchange="sanitize(this);"`)
     .replace(/{text_SELECTED}/gm, '')
     .replace(/{number_SELECTED}/gm, '')
-    .replace(/{password_SELECTED}/gm, '')
+    .replace(/{color_SELECTED}/gm, '')
     .replace(/{checkbox_SELECTED}/gm, '')
-    .replace(/{options_SELECTED}/gm, '');
+    .replace(/{options_SELECTED}/gm, '')
+    .replace(/{password_SELECTED}/gm, '')
+    .replace(/{textarea_SELECTED}/gm, '');
 
   if (json.error == null) {
     for (let i = 0; i < json.length; i++) {
@@ -794,9 +797,10 @@ async function startBuilderModal(element) {
         .replace(/{text_SELECTED}/gm, option.type == 'text' ? `selected="selected"` : '')
         .replace(/{number_SELECTED}/gm, option.type == 'number' ? `selected="selected"` : '')
         .replace(/{color_SELECTED}/gm, option.type == 'color' ? `selected="selected"` : '')
-        .replace(/{password_SELECTED}/gm, option.type == 'password' ? `selected="selected"` : '')
         .replace(/{checkbox_SELECTED}/gm, option.type == 'checkbox' ? `selected="selected"` : '')
-        .replace(/{options_SELECTED}/gm, option.type == 'options' ? `selected="selected"` : '');
+        .replace(/{options_SELECTED}/gm, option.type == 'options' ? `selected="selected"` : '')
+        .replace(/{password_SELECTED}/gm, option.type == 'password' ? `selected="selected"` : '')
+        .replace(/{textarea_SELECTED}/gm, option.type == 'textarea' ? `selected="selected"` : '');
 
       // if (i != json.length - 1)
       //   html += '\n<hr class="modal-space">\n'
@@ -865,7 +869,7 @@ async function builderNewOption(element) {
       return;
     };
 
-    if (payload.value == '' && payload.setting.type != 'password') {
+    if (payload.value == '' && (payload.setting.type != 'password' && payload.setting.type != 'textarea')) {
       displayNotification({
         element: element,
         text: `Specify default value`,
@@ -923,6 +927,7 @@ async function builderNewOption(element) {
       .replace(/{password_SELECTED}/gm, payload.setting.type == 'password' ? `selected="selected"` : '')
       .replace(/{checkbox_SELECTED}/gm, payload.setting.type == 'checkbox' ? `selected="selected"` : '')
       .replace(/{options_SELECTED}/gm, payload.setting.type == 'options' ? `selected="selected"` : '')
+      .replace(/{textarea_SELECTED}/gm, payload.setting.type == 'textarea' ? `selected="selected"` : '')
 
     displayNotification({
       element: element,

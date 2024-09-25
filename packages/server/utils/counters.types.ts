@@ -16,7 +16,8 @@ export type ISettingsType =
     | 'checkbox'
     | 'options'
     | 'color'
-    | 'note';
+    | 'note'
+    | 'textarea';
 
 export interface ICounter {
     _downloaded?: boolean;

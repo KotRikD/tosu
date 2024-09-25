@@ -122,6 +122,7 @@ export function createSetting(setting: ISettings, value: any) {
     switch (setting.type) {
         case 'text': {
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -136,6 +137,7 @@ export function createSetting(setting: ISettings, value: any) {
 
         case 'number': {
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -150,6 +152,7 @@ export function createSetting(setting: ISettings, value: any) {
 
         case 'password': {
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -164,6 +167,7 @@ export function createSetting(setting: ISettings, value: any) {
 
         case 'checkbox': {
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -183,6 +187,7 @@ export function createSetting(setting: ISettings, value: any) {
 
         case 'color': {
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -206,6 +211,7 @@ export function createSetting(setting: ISettings, value: any) {
                       .join('\n')
                 : '';
             return settingsItemHTML
+                .replace('{CLASSES}', '')
                 .replace('{NAME}', title)
                 .replace('{DESCRIPTION}', description)
                 .replace(
@@ -214,6 +220,21 @@ export function createSetting(setting: ISettings, value: any) {
                         .replace(/{ID}/gm, setting.uniqueID)
                         .replace('{ADDON}', `ucs t="${setting.type}"`)
                         .replace('{OPTIONS}', options)
+                );
+        }
+
+        case 'textarea': {
+            return settingsItemHTML
+                .replace('{CLASSES}', 'txt-area')
+                .replace('{NAME}', title)
+                .replace('{DESCRIPTION}', description)
+                .replace(
+                    '{INPUT}',
+                    textareaHTML
+                        .replace('{TYPE}', 'text')
+                        .replace(/{ID}/gm, setting.uniqueID)
+                        .replace('{ADDON}', `ucs t="${setting.type}"`)
+                        .replace('{VALUE}', value)
                 );
         }
     }

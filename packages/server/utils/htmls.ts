@@ -42,7 +42,7 @@ export const resultItemHTML = `
 </div>`;
 
 export const settingsItemHTML = `
-<div class="si flexer">
+<div class="si flexer {CLASSES}">
   <div>
     <h4>{NAME}</h4>
     <p>{DESCRIPTION}</p>
