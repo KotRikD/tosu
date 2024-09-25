@@ -114,16 +114,20 @@ function endDownload(element, id, text) {
   };
 }
 
-async function downloadCounter(element, id) {
+async function downloadCounter(element, id, update) {
   if (downloading.includes(id)) return;
 
   downloading.push(id);
 
-  const url = element.attributes.l?.value;
+  const folderName = element.attributes.l?.value;
   const name = element.attributes.n?.value;
   const author = element.attributes.a?.value;
 
-  const download = await fetch(`/api/counters/download/${url}?name=${name} by ${author}`);
+  const url = new URL(`http://${window.location.host}/api/counters/download/${folderName}`);
+  url.searchParams.append('name', `${name} by ${author}`);
+  if (update == true) url.searchParams.append('update', 'true');
+
+  const download = await fetch(url);
   const json = await download.json();
 
   if (json.error != null) {
@@ -134,22 +138,26 @@ async function downloadCounter(element, id) {
     };
 
     displayNotification({
-      element: element.parentElement.parentElement.parentElement,
+      element: element.parentElement.parentElement,
       text: `Error while downloading: ${json.error}`,
       classes: ['red'],
       delay: 3000,
     });
 
     setTimeout(() => {
-        endDownload(element, id, 'Download');
-        element.classList.remove('disable');
+      endDownload(element, id, 'Download');
+      element.classList.remove('disable');
     }, 101);
     return;
   };
 
+
+  let text = `PP Counter downloaded: ${name} by ${author}`;
+  if (update == true) text = `PP Counter updated: ${name} by ${author}`;
+
   displayNotification({
-    element: element.parentElement.parentElement.parentElement,
-    text: `PP Counter downloaded: ${name} by ${author}`,
+    element: element.parentElement.parentElement,
+    text: text,
     classes: ['green'],
     delay: 3000,
   });
@@ -1106,6 +1114,18 @@ window.addEventListener('click', (event) => {
 
     startDownload(t);
     downloadCounter(t, id);
+    return
+  };
+
+  if (t?.classList.value.includes('update-button')) {
+    const id = t.attributes.l?.value;
+    const name = t.attributes.n?.value;
+    const author = t.attributes.a?.value;
+    const confirmed = confirm(`Update counter «${name} by ${author}»?`);
+    if (!confirmed) return;
+
+    startDownload(t);
+    downloadCounter(t, id, true);
     return
   };
   if (t?.classList.value.includes(' delete-button')) return deleteCounter(t);

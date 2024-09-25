@@ -20,10 +20,12 @@ export type ISettingsType =
 
 export interface ICounter {
     _downloaded?: boolean;
+    _updatable?: boolean;
     _settings?: boolean;
     folderName: string;
     name: string;
     author: string;
+    version: string;
     resolution: number[];
     authorlinks: string[];
     settings: ISettings[];

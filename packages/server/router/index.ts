@@ -81,7 +81,7 @@ export default function buildBaseApi(server: Server) {
 
             const tempPath = path.join(cacheFolder, `${Date.now()}.zip`);
 
-            if (fs.existsSync(folderPath)) {
+            if (fs.existsSync(folderPath) && req.query.update !== 'true') {
                 return sendJson(res, {
                     error: 'Folder already exist'
                 });

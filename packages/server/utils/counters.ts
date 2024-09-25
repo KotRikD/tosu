@@ -105,6 +105,7 @@ export function parseTXT(filePath: string) {
     else object.resolution = ['Any', 'Any'];
 
     if (object.authorlinks) object.authorlinks = object.authorlinks.split(',');
+    if (!object.version) object.version = '1.0';
 
     object.settings = Array.isArray(settings) ? settings : [];
 
@@ -295,7 +296,12 @@ function rebuildJSON({
                     : '';
 
             const name = nameHTML
-                .replace('{NAME}', `${item.name}${externalHasSettings}`)
+                .replace(
+                    '{NAME}',
+                    item.version
+                        ? `${item.name} v${item.version}${externalHasSettings}`
+                        : `${item.name}${externalHasSettings}`
+                )
                 .replace('{CLASS}', 'flexer');
             const author = authorHTML.replace('{AUTHOR}', item.author);
 
@@ -381,9 +387,21 @@ function rebuildJSON({
                     ? `<button class="button settings-button flexer" n="${item.folderName}"><span>Settings</span></button>`
                     : '';
 
-            const button = item.downloadLink
-                ? `<div class="buttons-group indent-left"><button class="button dl-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Download</span></button></div>`
-                : `<div class="buttons-group flexer indent-left">
+            const updateBtn =
+                item._updatable === true
+                    ? `<button class="button update-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Update</span></button>`
+                    : '';
+            const downloadBtn =
+                item.downloadLink && item._downloaded !== true
+                    ? `<button class="button dl-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Download</span></button>`
+                    : `<button class="button open-button flexer" n="${item.name} by ${item.author}"><span>Open Folder</span></button>`;
+
+            const externalButtons = `<div class="buttons-group flexer indent-left">
+                ${updateBtn}
+                ${downloadBtn}
+            </div>`;
+
+            const localButtons = `<div class="buttons-group flexer indent-left">
                 ${settingsBuilderBtn}
                 ${settingsBtn}
                 <button class="button open-button flexer" n="${item.folderName}"><span>Open Folder</span></button>
@@ -407,12 +425,16 @@ function rebuildJSON({
             items += resultItemHTML
                 .replace(
                     '{CLASS}',
-                    item._downloaded === true ? ' downloaded' : ''
+                    item._updatable === true
+                        ? ' updatable'
+                        : item._downloaded === true
+                          ? ' downloaded'
+                          : ''
                 )
                 .replace('{NAME}', name)
                 .replace('{AUTHOR}', author)
                 .replace('{AUTHOR_LINKS}', links)
-                .replace('{BUTTONS}', button)
+                .replace('{BUTTONS}', external ? externalButtons : localButtons)
                 .replace('{GALLERY}', gallery)
                 .replace('{FOOTER}', footer);
         } catch (error) {
@@ -424,7 +446,7 @@ function rebuildJSON({
     return items;
 }
 
-function getLocalCounters() {
+function getLocalCounters(): ICounter[] {
     try {
         const staticPath = getStaticPath();
 
@@ -472,6 +494,7 @@ function getLocalCounters() {
                         .replace(/^(\\\\\\|\\\\|\\|\/|\/\/)/, '')
                         .replace(/\\/gm, '/'),
                     name: path.basename(path.dirname(r)),
+                    version: '1.0',
                     author: 'local',
                     resolution: [-2, '400'],
                     authorlinks: [],
@@ -548,6 +571,15 @@ export async function buildExternalCounters(
             const find = exists.find(
                 (s) => s.name === r.name && s.author === r.author
             );
+
+            if (
+                r.version &&
+                find &&
+                r.version.toString().toLowerCase() !==
+                    find.version.toString().toLowerCase()
+            )
+                r._updatable = true;
+
             if (find) r._downloaded = true;
             return r;
         });
