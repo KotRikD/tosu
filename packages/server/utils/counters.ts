@@ -443,15 +443,12 @@ function rebuildJSON({
                     ? `<div class="ri-footer flexer">${metadata}</div>`
                     : '';
 
+            let itemStatus = '';
+            if (item._updatable === true) itemStatus = ' updatable';
+            else if (item._downloaded === true) itemStatus = ' downloaded';
+
             items += resultItemHTML
-                .replace(
-                    '{CLASS}',
-                    item._updatable === true
-                        ? ' updatable'
-                        : item._downloaded === true
-                          ? ' downloaded'
-                          : ''
-                )
+                .replace('{CLASS}', itemStatus)
                 .replace('{NAME}', name)
                 .replace('{AUTHOR}', author)
                 .replace('{AUTHOR_LINKS}', links)
