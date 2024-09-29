@@ -19,7 +19,6 @@ import {
     buildInstructionLocal,
     buildLocalCounters,
     buildSettings,
-    parseSettings,
     saveSettings
 } from '../utils/counters';
 import { ISettings } from '../utils/counters.types';
@@ -264,16 +263,7 @@ export default function buildBaseApi(server: Server) {
                     `Settings accessed: ${folderName} (${req.headers.referer})`
                 );
 
-                const html = parseSettings(settings.settings, folderName);
-                if (html instanceof Error) {
-                    wLogger.debug(`counter-${folderName}-settings-html`, html);
-
-                    return sendJson(res, {
-                        error: html
-                    });
-                }
-
-                return sendJson(res, { result: html });
+                return sendJson(res, settings);
             } catch (error) {
                 return sendJson(res, {
                     error: (error as any).message
