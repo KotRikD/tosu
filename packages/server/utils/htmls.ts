@@ -23,9 +23,9 @@ export const metadataHTML = `
 export const nameHTML = '<h4 class="{CLASS}">{NAME}</h4>';
 export const authorHTML = '<span>by {AUTHOR}</span>';
 export const authorLinksHTML =
-    '<a href="{LINK}" target="_blank"><img src="{ICON_URL}" /></a>';
+    '<a href="{LINK}" target="_blank"><img loading="lazy" src="{ICON_URL}" /></a>';
 
-export const galleryImageHTML = '<img src="{LINK}" />';
+export const galleryImageHTML = '<img loading="lazy" src="{LINK}" />';
 
 export const resultItemHTML = `
 <div class="result-item{CLASS}">
