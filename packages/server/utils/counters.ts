@@ -203,20 +203,20 @@ function rebuildJSON({
                 )
                 .replace(
                     '{WIDTH}',
-                    item.resolution[0] === 0
-                        ? '100%'
-                        : item.resolution[0] === -1
-                          ? '500px'
-                          : item.resolution[0] === -2
+                    item.resolution[0] === -1
+                        ? '500px'
+                        : item.resolution[0] === -2
+                          ? '100%'
+                          : item.resolution[0] <= 10
                             ? '100%'
                             : `${item.resolution[0]}px`
                 )
                 .replace(
                     '{HEIGHT}',
-                    item.resolution[0] === 0
-                        ? '300px'
-                        : item.resolution[1] === -1
-                          ? '500px'
+                    item.resolution[1] === -1
+                        ? '500px'
+                        : item.resolution[0] <= 10
+                          ? '300px'
                           : `${item.resolution[1]}px`
                 )
                 .replace('{NAME}', item.folderName);

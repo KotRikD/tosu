@@ -80,7 +80,7 @@ export function parseCounterSettings(
 
                     switch (settings[find].type) {
                         case 'number': {
-                            settings[find].value = isNaN(setting.value)
+                            values[setting.uniqueID] = isNaN(setting.value)
                                 ? 0
                                 : +setting.value;
                             break;
@@ -88,21 +88,34 @@ export function parseCounterSettings(
 
                         case 'checkbox': {
                             if (typeof setting.value === 'string') {
-                                settings[find].value = setting.value === 'true';
+                                values[setting.uniqueID] =
+                                    setting.value === 'true';
                                 break;
                             }
 
-                            settings[find].value = setting.value;
+                            values[setting.uniqueID] = setting.value;
+                            break;
+                        }
+
+                        case 'options':
+                        case 'commands': {
+                            if (
+                                values[setting.uniqueID] === null &&
+                                values[setting.uniqueID] === undefined &&
+                                JSON.stringify(setting.value) ===
+                                    JSON.stringify(settings[find].value)
+                            )
+                                continue;
+
+                            values[setting.uniqueID] = setting.value;
                             break;
                         }
 
                         default: {
-                            settings[find].value = setting.value;
+                            values[setting.uniqueID] = setting.value;
                             break;
                         }
                     }
-
-                    values[setting.uniqueID] = settings[find].value;
                 }
 
                 return {
