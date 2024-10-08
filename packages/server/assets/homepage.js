@@ -50,7 +50,7 @@ const settingsBuilder = {
       else if (setting.type == 'commands') {
         for (let o = 0; o < setting.options.length; o++) {
           const option = setting.options[o];
-          if (option.type == 'options')
+          if (option.type == 'options' && option.values[option.values.length - 1] != '')
             option.values.push('');
         };
 
@@ -66,15 +66,6 @@ const settingsBuilder = {
 
         if (!Array.isArray(setting.value))
           setting.value = [];
-
-
-        const obj = {};
-        setting.options.forEach(r => {
-          if (r.name == '') return;
-
-          obj[r.name] = r.value;
-        });
-
 
         setting.value.push({});
       };
@@ -188,8 +179,20 @@ const settingsBuilder = {
       const value = item.value[ind];
 
 
+      const find = item.value.slice(0, item.value.length - 1).find(r => r[item.uniqueCheck] == value[item.uniqueCheck]);
+      if (find) {
+        displayNotification({
+          element: event.target,
+          text: `Command already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
       const items = item.options.filter(r => r.name !== '');
-      const required = items.filter(r => r.required == true && r.name !== '');
+      const required = items.filter(r => r.required == true && r.name !== '' && r.type != 'checkbox');
       if (required.length > 0) {
         for (let i = 0; i < required.length; i++) {
           const option = required[i];
@@ -574,6 +577,11 @@ const settingsBuilder = {
     };
 
 
+    function closeit() {
+      isBuilderModal = false;
+      closeModal(null, window.builder.unmount);
+    };
+
     return {
       settings,
       folderName: props.folderName,
@@ -595,9 +603,209 @@ const settingsBuilder = {
       removeSetting,
       removeCommand,
       sanitize,
+
+      closeit,
     };
   },
-  template: `<div class="m-content"><h2 class="ms-title"><span>Settings Builder</span><span>«{{folderName}}»</span></h2><div class="m-scroll settings-container"><div class="new-item"><div class="ni-row-1"><div class="si flexer"><select v-model="new_item.type"><option value="text">Text</option><option value="color">Color</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="options">Options</option><option value="commands">Commands</option><option value="textarea">Text area</option><option value="password">Secret value</option></select></div><div class="si flexer ni-unique"><input type="text" placeholder="Unique id" @input="sanitize" v-model="new_item.uniqueID"></div><div class="si flexer ni-title"><input type="text" placeholder="Title" v-model="new_item.title"></div></div><div class="si flexer ni-description"><textarea placeholder="Description" rows="2" v-model="new_item.description"></textarea></div><div class="ni-row-3"><div v-if="new_item.type == 'color'" class="si flexer ni-value"><input type="color" v-model="new_item.value"></div><label v-else-if="new_item.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="new_item.value"><span class="checkmark"></span><span class="status"></span></label><div v-else-if="new_item.type == 'options'" class="ni-options"><div v-for="(o, ind) in new_item.options" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="new_item.options[ind]" @change="deleteEmptyOption(ind)"><i class="icon-delete" @click="deleteOption(ind)"></i></div><div class="si ni-option flexer"><input type="text" placeholder="option name" @keyup.enter="pushOption($event)"><i class="icon-plus" @click="pushOption($event)"></i></div><div></div><div class="si flexer nid-value"><span>Select default option</span><select v-model="new_item.value"><option v-for="v in new_item.options" :value="v" v-text="v"></option></select></div></div><div v-else-if="new_item.type == 'commands'"><h3>Commands options</h3><p class="ni-p">Define default commands</p><div class="ni-commands"><div v-for="(i, ind) in new_item.options" class="si nic-container flexer"><input type="text" placeholder="name" v-model="i.name" @change="deleteEmptyOption(ind)"> <input type="text" placeholder="value" v-model="i.value"><i class="icon-delete" @click="deleteOption(ind)"></i></div><div class="si nic-container flexer"><input type="text" placeholder="name" @keyup.enter="pushOptionCommand($event)"> <input type="text" placeholder="value" @keyup.enter="pushOptionCommand($event)"><i class="icon-plus" @click="pushOptionCommand($event)"></i></div></div></div><div v-else-if="new_item.type == 'textarea'" class="si flexer ni-description"><textarea placeholder="Default value" rows="3" v-model="new_item.value"></textarea></div><div v-else class="si flexer ni-value"><input type="text" placeholder="Default value" v-model="new_item.value"></div></div><div class="si-btns flexer si-btn"><button class="button add-option-button flexer" @click="addSetting($event)"><span>Add new option</span></button></div></div><div v-for="(i, index) in settings" class="settings-item"><div class="ni-row-1"><div class="si flexer ni-type"><select v-model="i.type"><option value="text">Text</option><option value="color">Color</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="options">Options</option><option value="commands">Commands</option><option value="textarea">Text area</option><option value="password">Secret value</option></select></div><div class="si flexer ni-unique"><input type="text" placeholder="Unique id" @input="sanitize" v-model="i.uniqueID"></div><div class="si flexer ni-title"><input type="text" placeholder="Title" v-model="i.title"></div></div><div class="si flexer ni-description"><textarea placeholder="Description" rows="2" v-model="i.description"></textarea></div><div class="ni-row-3"><div v-if="i.type == 'color'" class="si flexer ni-value"><input type="color" v-model="i.value"></div><label v-else-if="i.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="i.value"><span class="checkmark"></span><span class="status"></span></label><div v-else-if="i.type == 'options'" class="ni-options"><div v-for="(o, ind) in i.options" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="i.options[ind]" @change="deleteEmptyOption(ind, index)"><i class="icon-delete" @click="deleteOption(ind, index)"></i></div><div class="si ni-option flexer"><input type="text" placeholder="option name" @keyup.enter="pushOption($event, index)"><i class="icon-plus" @click="pushOption($event, index)"></i></div><div></div><div class="si flexer nid-value"><span>Select default option</span><select v-model="i.value"><option v-for="v in i.options" :value="v" v-text="v"></option></select></div></div><div v-else-if="i.type == 'commands'"><h3>Commands options</h3><p class="ni-p">Define default commands</p><div class="ni-commands"><div v-for="(o, ind) in i.options" class="si nic-container flexer"><input type="text" placeholder="name" v-model="o.name" @change="deleteEmptyOption(ind, index)"> <input type="text" placeholder="value" v-model="o.value"><i class="icon-delete" @click="deleteOption(ind, index)"></i></div><div class="si nic-container flexer"><input type="text" placeholder="name" @keyup.enter="pushOptionCommand($event, index)"> <input type="text" placeholder="value" @keyup.enter="pushOptionCommand($event, index)"><i class="icon-plus" @click="pushOptionCommand($event, index)"></i></div></div></div><div v-else-if="i.type == 'textarea'" class="si flexer ni-description"><textarea placeholder="Default value" rows="3" v-model="i.value"></textarea></div><div v-else class="si flexer ni-value"><input type="text" placeholder="Default value" v-model="i.value"></div></div><div class="si-btns flexer si-btn"><button class="button remove-option-button flexer" @click="removeSetting(index)"><span>Remove option</span></button></div></div></div><div class="ms-btns flexer si-btn"><button class="button update-x2-settings-button flexer" @click="updateSettings"><span>Update settings</span></button><button class="button cancel-button flexer"><span>Cancel</span></button></div></div>`
+  template: `<div class="m-content"><h2 class="ms-title"><span>Settings Builder</span><span>«{{folderName}}»</span></h2><div class="m-scroll settings-container"><div v-for="(i, index) in settings" class="settings-item" :class="{'new-item': index == 0}"><div class="ni-row-1"><div class="si flexer ni-type"><select :disabled="index > 0" @change="updateType('', $event, index)" v-model="i.type"><option value="text">Text</option><option value="color">Color</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="button">Button link</option><option value="options">Options</option><option value="commands">Commands</option><option value="textarea">Text area</option><option value="password">Secret value</option></select></div><div class="si flexer ni-unique"><input type="text" placeholder="Unique id" @input="sanitize" v-model="i.uniqueID"></div><div class="si flexer ni-title"><input type="text" placeholder="Title" v-model="i.title"></div></div><div class="si flexer ni-description"><textarea placeholder="Description" rows="2" v-model="i.description"></textarea></div><div class="ni-row-3"><div v-if="i.type == 'color'" class="si flexer ni-value"><input type="color" v-model="i.value"></div><label v-else-if="i.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="i.value"><span class="checkmark"></span><span class="status"></span></label><div v-else-if="i.type == 'options'"><div class="ni-options"><div v-for="(o, ind) in i.options" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="i.options[ind]" @change="ind == i.options.length - 1 ? pushOption($event, ind, index) : deleteOption(ind, index)" @keyup.enter="ind == i.options.length - 1 ? pushOption($event, ind, index) : ''"><i v-if="ind == i.options.length - 1" class="icon-plus" @click="pushOption($event, ind, index)"></i><i v-else class="icon-delete" @click="deleteOption(ind, index, true)"></i></div></div><div class="si flexer nid-value"><span>Select default option</span><select v-model="i.value"><option v-for="v in i.options.filter(r=> r !== '')" :value="v" v-text="v"></option></select></div></div><div v-else-if="i.type == 'commands'"><h3>Commands options</h3><p class="ni-p">Define commands options</p><div class="ni-commands"><div v-for="(o, ind) in i.options" class="nic-container"><div class="si nic-content flexer"><label v-if="o.type != 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="o.required"><span class="checkmark"></span><span>required</span></label><select @change="updateType('command', $event, ind, index)" v-model="o.type"><option value="text">Text</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="options">Options</option></select><input type="text" placeholder="name" v-model="o.name"> <input type="text" placeholder="title" v-model="o.title"> <input type="text" placeholder="description" v-model="o.description"> <input v-if="o.type == 'text'" type="text" placeholder="default value" v-model="o.value"> <input v-else-if="o.type == 'number'" type="number" placeholder="default value" v-model="o.value"><label v-else-if="o.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="o.value"><span class="checkmark"></span><span class="status"></span></label><button v-if="ind == i.options.length - 1" class="button add-option-button flexer" @click="pushCommandOption($event, ind, index)"><span>+</span></button><button v-else class="button remove-option-button flexer" @click="deleteOption(ind, index, true)"><span>-</span></button></div><div v-if="o.type == 'options'" class="nic-options flexer"><div v-for="(v, ind2) in o.values" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="o.values[ind2]" @change="ind2 == o.values.length - 1 ? pushOptionValue($event, ind, ind2, index) : deleteOptionValue(ind, ind2, index)" @keyup.enter="ind2 == o.values.length - 1 ? pushOptionValue($event, ind, ind2, index) : ''"><i v-if="ind2 == o.values.length - 1" class="icon-plus" @click="pushOptionValue($event, ind, ind2, index)"></i><i v-else class="icon-delete" @click="deleteOptionValue(ind,ind2, index, true)"></i></div></div><div v-if="o.type == 'options'" class="si flexer nid-value"><span>Select default option</span><select v-model="o.value"><option v-for="v in o.values.filter(r=> r !== '')" :value="v" v-text="v"></option></select></div><hr></div></div><div class="mtb-1 g05 flexer"><h3>Unique option</h3><select class="fgrow" v-model="i.uniqueCheck"><option v-for="v in i.options.filter(r=> r.name !== '')" :value="v.name" v-text="v.name"></option></select></div><h3>Default commands</h3><div class="ni-dcommands si block"><div v-for="(v, ind) in i.value" class="sc-commands"><div class="scc-item flexer empty"><div v-for="o in i.options.filter(r=> r.name != '')" class="scci-item"><h4 v-text="o.title"></h4><input v-if="o.type == 'text'" class="fgrow" type="text" v-model="v[o.name]"> <input v-else-if="o.type == 'number'" class="fgrow" type="number" v-model="v[o.name]"><label v-else-if="o.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="v[o.name]"><span class="checkmark"></span><span class="status"></span></label><select v-else-if="o.type == 'options'" class="fgrow" v-model="v[o.name]"><option v-for="v in o.values" :value="v" v-text="v"></option></select></div></div><div class="si-btns flexer si-btn"><button v-if="ind == i.value.length-1" class="button add-option-button flexer" @click="addCommand($event, ind, index)"><span>Add new command</span></button><button v-else class="button remove-option-button flexer" @click="removeCommand(ind, index)"><span>Remove command</span></button></div><hr></div></div></div><div v-else-if="i.type == 'textarea'" class="si flexer ni-description"><textarea placeholder="Default value" rows="3" v-model="i.value"></textarea></div><div v-else class="si flexer ni-value"><input v-if="i.type == 'text'" type="text" placeholder="Default value" v-model="i.value"> <input v-else-if="i.type == 'button'" type="text" placeholder="Specify url" v-model="i.value"> <input v-else-if="i.type == 'number'" type="number" placeholder="Default number" v-model="i.value"> <input v-else-if="i.type == 'password'" type="password" placeholder="Default secret value" v-model="i.value"></div></div><div class="si-btns flexer si-btn"><button v-if="index == 0" class="button add-option-button flexer" @click="addSetting($event)"><span>Add new setting</span></button><button v-else class="button remove-option-button flexer" @click="removeSetting(index)"><span>Remove setting</span></button></div></div></div><div class="ms-btns flexer si-btn"><button class="button update-x2-settings-button flexer" @click="updateSettings"><span>Update settings</span></button><button class="button cancel-button flexer" @click="closeit"><span>Cancel</span></button></div></div>`
+};
+
+const showSettings = {
+  props: {
+    folderName: {
+      type: String,
+      required: true,
+    },
+    settings: {
+      type: Array,
+      required: true,
+    },
+    values: {
+      type: Array,
+      required: true,
+    },
+  },
+  setup(props) {
+    const settings = ref([]);
+    for (let i = 0; i < props.settings.length; i++) {
+      const setting = props.settings[i];
+      if (setting.type == "commands") {
+        setting.options.forEach(r => {
+          if (r.values) r.values = r.values.filter(r => r !== '' && r != null);
+        });
+
+        if (!Array.isArray(setting.value)) setting.value = [];
+        setting.value.push({});
+      };
+
+
+      console.log(setting.value, props, props.values[setting.uniqueID]);
+      if (props.values[setting.uniqueID]) {
+
+        setting.value = props.values[setting.uniqueID];
+      }
+
+      settings.value.push(setting);
+    };
+
+
+    function addCommand(event, ind, ind2) {
+      const item = settings.value[ind2];
+      const value = item.value[ind];
+
+
+      const find = item.value.slice(0, item.value.length - 1).find(r => r[item.uniqueCheck] == value[item.uniqueCheck]);
+      if (find) {
+        displayNotification({
+          element: event.target,
+          text: `Command already exists1`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
+      const items = item.options.filter(r => r.name !== '');
+      const required = items.filter(r => r.required == true && r.name !== '' && r.type != 'checkbox');
+      if (required.length > 0) {
+        for (let i = 0; i < required.length; i++) {
+          const option = required[i];
+          if (value[option.name]) continue;
+
+          displayNotification({
+            element: event.target,
+            text: `Command «${option.name}» is required`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          return;
+        };
+      };
+
+
+      if (items.length == 0) {
+        displayNotification({
+          element: event.target,
+          text: 'Add at least one command option',
+          classes: ['red'],
+          delay: 3000,
+        });
+
+        return;
+      };
+
+
+      item.value.push({});
+    };
+
+
+    async function updateSettings(event) {
+      const confirmed = confirm(`Update settings?`);
+      if (!confirmed) return;
+
+      const element = event.target;
+
+      downloading.push('update-settings');
+      const button_text = element.innerText;
+      startDownload(element);
+
+
+      try {
+        const _settings = JSON.parse(JSON.stringify(settings.value.slice(1)));
+        for (let i = 0; i < _settings.length; i++) {
+          const setting = _settings[i];
+          if (setting.type == 'commands') {
+            setting.options = setting.options.filter(r => r.name !== '' && r.name != null);
+            setting.options.forEach(r => {
+              if (r.values) r.values = r.values.filter(r => r !== '' && r != null);
+            });
+            setting.value = (setting.value || []).filter(r => Object.keys(r).length > 0);
+          };
+        };
+
+        const values = _settings.map(r => ({ uniqueID: r.uniqueID, value: r.value }));
+
+
+        const request = await fetch(`/api/counters/settings/${props.folderName}`, {
+          method: "POST",
+          body: JSON.stringify(values),
+        });
+        const json = await request.json();
+
+        if (json.error != null) {
+          if (typeof json.error == 'object') {
+            try {
+              json.error = JSON.stringify(json.error);
+            } catch (error) { };
+          };
+
+          displayNotification({
+            element: element,
+            text: `Error while saving: ${json.error}`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          setTimeout(() => {
+            endDownload(element, 'update-settings', button_text);
+            element.classList.remove('disable');
+          }, 300);
+          return;
+        };
+
+
+        displayNotification({
+          element: element,
+          text: `Settings saved`,
+          classes: ['green'],
+          delay: 3000,
+        });
+      } catch (error) {
+        console.error(error);
+        displayNotification({
+          element: element,
+          text: `Error while saving builder settings: ${error.name}`,
+          classes: ['red'],
+          delay: 3000,
+        });
+      } finally {
+        setTimeout(() => {
+          endDownload(element, 'update-settings', button_text);
+          element.classList.remove('disable');
+        }, 400);
+      };
+    };
+
+
+    function removeCommand(ind, ind2) {
+      const item = settings.value[ind2];
+      const confirmed = confirm(`Delete command?`);
+      if (!confirmed) return;
+
+
+      item.value.splice(ind, 1);
+    };
+
+    function closeit() {
+      isBuilderModal = false;
+      closeModal(null, window.counter_settings.unmount);
+    };
+
+
+    return {
+      settings,
+      folderName: props.folderName,
+      updateSettings,
+
+      addCommand,
+      removeCommand,
+
+      closeit,
+    };
+  },
+  template: `<div class="m-content"><h2 class="ms-title"><span>Settings</span><span>«{{folderName}}»</span></h2><div class="m-scroll settings-container"><div v-for="(i, index) in settings"><div class="si flexer" :class="{ 'block txt-area': i.type == 'textarea', block: i.type == 'commands' }"><div><h4 v-text="i.title"></h4><p v-text="i.description"></p></div><input v-if="i.type == 'text'" class="fgrow" type="text" v-model="i.value"> <input v-else-if="i.type == 'number'" class="fgrow" type="number" v-model="i.value"> <input v-else-if="i.type == 'color'" class="fgrow" type="color" v-model="i.value"> <input v-else-if="i.type == 'password'" class="fgrow" type="password" v-model="i.value"><a v-else-if="i.type == 'button'" class="button open-link-button flexer" :href="i.value" target="_blank"><span>open link</span><i class="icon-link"></i></a><label v-else-if="i.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="i.value"><span class="checkmark"></span><span class="status"></span></label><textarea v-else-if="i.type == 'textarea'" v-model="i.value"></textarea><select v-else-if="i.type == 'options'" class="fgrow" v-model="i.value"><option v-for="o in i.options" :value="o" v-text="o"></option></select><div v-else-if="i.type == 'commands'" class="sc-commands"><hr><div v-for="(v, ind) in i.value" class="sc-commands"><div class="scc-item flexer empty"><div v-for="o in i.options.filter(r=> r.name != '')" class="scci-item"><h4 v-text="o.title"></h4><p v-text="o.description"></p><input v-if="o.type == 'text'" class="fgrow" type="text" v-model="v[o.name]"> <input v-else-if="o.type == 'number'" class="fgrow" type="number" v-model="v[o.name]"><label v-else-if="o.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="v[o.name]"><span class="checkmark"></span><span class="status"></span></label><select v-else-if="o.type == 'options'" class="fgrow" v-model="v[o.name]"><option v-for="v in o.values" :value="v" v-text="v"></option></select></div></div><div class="si-btns flexer si-btn"><button v-if="ind == i.value.length-1" class="button add-option-button flexer" @click="addCommand($event, ind, index)"><span>Add new command</span></button><button v-else class="button remove-option-button flexer" @click="removeCommand(ind, index)"><span>Remove command</span></button></div><hr></div></div></div></div></div><div class="ms-btns flexer si-btn"><button class="button update-settings-button flexer" @click="updateSettings"><span>Update settings</span></button><button class="button cancel-button flexer" @click="closeit"><span>Cancel</span></button></div></div>`
 };
 
 
@@ -736,13 +944,13 @@ async function downloadCounter(element, id, update) {
 
 
   let text = `PP Counter downloaded: ${name} by ${author}`;
-  if (update == true) text = `PP Counter updated: ${name} by ${author}`;
+  if (update == true) text = `PP Counter updated: ${name} by ${author}<br>Refresh it in obs (if you have one added)`;
 
   displayNotification({
     element: element.parentElement.parentElement,
     text: text,
     classes: ['green'],
-    delay: 3000,
+    delay: 5000,
   });
 
   endDownload(element, id, 'Downloaded');
@@ -767,7 +975,7 @@ function displayNotification({ element, text, classes, delay }) {
   div.style.left = leftOffset;
   div.style.bottom = bottomOffset - divSize.height - 5;
 
-  div.innerText = text;
+  div.innerHTML = text;
 
 
   document.querySelector('main').appendChild(div);
@@ -894,7 +1102,7 @@ function handleInput() {
 
   timer = setTimeout(() => {
     startSearch();
-  }, 500);
+  }, 300);
 };
 
 async function startSearch(search) {
@@ -1094,91 +1302,15 @@ async function loadCounterSettings(element) {
   };
 
 
-  displayModal(json.result);
-};
-
-async function updateCounterSettings(element) {
-  if (downloading.includes('update-settings')) return;
-  downloading.push('update-settings');
-
-  const result = [];
-  const folderName = decodeURI(element.attributes.n?.value || '');
-
-  document.querySelectorAll('[ucs]').forEach((value, key) => {
-    const type = value.attributes.getNamedItem('t').value;
-    const obj = {
-      uniqueID: value.id,
-      value: value.value,
-    };
-
-    if (type == 'checkbox') obj.value = value.checked;
-
-    result.push(obj);
-  });
-
-  if (result.length == 0) {
-    displayNotification({
-      element: element,
-      text: `Nothing to save`,
-      classes: ['yellow'],
-      delay: 3000,
+  displayModal(() => {
+    window.counter_settings = createApp(showSettings, {
+      folderName,
+      settings: Array.isArray(json?.settings) ? json.settings : [],
+      values: Array.isArray(json?.values) ? json.values : [],
     });
 
-
-    setTimeout(() => {
-      endDownload(element, 'update-settings', 'Update settings');
-      element.classList.remove('disable');
-    }, 300);
-    return;
-  };
-
-  const request = await fetch(`/api/counters/settings/${folderName}`, {
-    method: "POST",
-    body: JSON.stringify(result),
-  });
-  const json = await request.json();
-
-  if (json.error != null) {
-    if (typeof json.error == 'object') {
-      try {
-        json.error = JSON.stringify(json.error);
-      } catch (error) { };
-    };
-
-    displayNotification({
-      element: element,
-      text: `Error while saving: ${json.error}`,
-      classes: ['red'],
-      delay: 3000,
-    });
-
-    setTimeout(() => {
-      endDownload(element, 'save-settings', 'Save settings');
-      element.classList.remove('disable');
-    }, 300);
-    return;
-  };
-
-
-  displayNotification({
-    element: element,
-    text: `Settings updated: ${folderName}`,
-    classes: ['green'],
-    delay: 3000,
-  });
-
-  // const iframe = document.querySelector(`iframe[n="${folderName}"]`);
-  // const url = iframe.src;
-
-  // iframe.src = '';
-
-  setTimeout(() => {
-    endDownload(element, 'update-settings', 'Update settings');
-    element.classList.remove('disable');
-    // iframe.src = url;
-
-    // closeModal();
-  }, 300);
+    window.counter_settings.mount('#showSettings');
+  }, 'showSettings');
 };
 
 async function startUpdate(element) {
@@ -1268,11 +1400,6 @@ search_bar.addEventListener('keydown', handleInput);
 window.addEventListener('click', (event) => {
   const t = event.target;
 
-  if (t.id == 'new___type') {
-    document.getElementById('new___options').parentElement.style.display = t.value == 'options' ? '' : 'none';
-  };
-
-
   if (t?.classList.value.includes('dl-button')) {
     const id = t.attributes.l?.value;
 
@@ -1296,6 +1423,7 @@ window.addEventListener('click', (event) => {
   if (t?.classList.value.includes(' open-button')) return openCounter(t);
   if (t?.classList.value.includes(' open-folder-button')) return openCounter(t);
 
+  // save tosu settings
   if (t?.classList.value.includes(' save-button')) {
     startDownload(t);
     return saveSettings(t);
@@ -1309,17 +1437,6 @@ window.addEventListener('click', (event) => {
   if (t?.classList.value.includes(' settings-builder-button')) {
     startBuilderModal(t);
     return;
-  };
-
-  if (t?.classList.value.includes(' cancel-button')) {
-    isBuilderModal = false;
-    closeModal(null, window.builder.unmount);
-    return;
-  };
-
-  if (t?.classList.value.includes(' update-settings-button')) {
-    startDownload(t);
-    return updateCounterSettings(t);
   };
 
   if (t?.classList.value.includes('update-available')) {

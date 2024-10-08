@@ -311,6 +311,8 @@ export default function buildBaseApi(server: Server) {
                             'utf8'
                         );
                     }
+
+                    return sendJson(res, { result: 'success' });
                 }
 
                 wLogger.info(

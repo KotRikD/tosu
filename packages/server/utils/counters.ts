@@ -98,7 +98,7 @@ export function parseTXT(filePath: string) {
         : [];
 
     if (object.resolution)
-        object.resolution = object.resolution.map((r) => r.trim()) || [
+        object.resolution = object.resolution.map((r) => +r.trim()) || [
             'Any',
             'Any'
         ];
@@ -356,17 +356,21 @@ function rebuildJSON({
                 )
                 .replace(
                     '{WIDTH}',
-                    item.resolution[0] === -1
-                        ? '500px'
-                        : item.resolution[0] === -2
-                          ? '100%'
-                          : `${item.resolution[0]}px`
+                    item.resolution[0] === 0
+                        ? '100%'
+                        : item.resolution[0] === -1
+                          ? '500px'
+                          : item.resolution[0] === -2
+                            ? '100%'
+                            : `${item.resolution[0]}px`
                 )
                 .replace(
                     '{HEIGHT}',
-                    item.resolution[1] === -1
-                        ? '500px'
-                        : `${item.resolution[1]}px`
+                    item.resolution[0] === 0
+                        ? '300px'
+                        : item.resolution[1] === -1
+                          ? '500px'
+                          : `${item.resolution[1]}px`
                 )
                 .replace('{NAME}', item.folderName);
 
