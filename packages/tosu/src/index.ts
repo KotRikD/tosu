@@ -9,7 +9,8 @@ import { InstanceManager } from './objects/instanceManager/instanceManager';
 const currentVersion = require(process.cwd() + '/_version.js');
 
 (async () => {
-    wLogger.info(`Starting tosu v${currentVersion}`);
+    config.currentVersion = currentVersion;
+    wLogger.info(`Starting tosu`);
 
     Process.disablePowerThrottling();
 

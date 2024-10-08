@@ -1,4 +1,9 @@
-import { JsonSafeParse, getStaticPath, wLogger } from '@tosu/common';
+import {
+    JsonSafeParse,
+    getSettingsPath,
+    getStaticPath,
+    wLogger
+} from '@tosu/common';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,13 +20,24 @@ export function parseCounterSettings(
         decodeURI(folderName),
         'settings.json'
     );
-    const settingsValuesPath = path.join(
+    const settingsValuesPath = getSettingsPath(decodeURI(folderName));
+    const legacySettingsValuesPath = path.join(
         staticPath,
         decodeURI(folderName),
         'settings.values.json'
     );
 
     try {
+        // copy legacy settings instead of moving/renaming, because some could have their static folder on other drive
+        if (fs.existsSync(legacySettingsValuesPath)) {
+            // wLogger.warn('counter-settings', 'copied legacy settings to new folder', decodeURI(folderName));
+            fs.copyFileSync(legacySettingsValuesPath, settingsValuesPath);
+            fs.renameSync(
+                legacySettingsValuesPath,
+                legacySettingsValuesPath.replace('values', 'old-values')
+            );
+        }
+
         if (!fs.existsSync(settingsPath))
             fs.writeFileSync(settingsPath, JSON.stringify([]), 'utf8');
 
@@ -40,38 +56,9 @@ export function parseCounterSettings(
 
         switch (action) {
             case 'parse':
-                for (let i = 0; i < settings.length; i++) {
-                    const setting = settings[i];
-
-                    const value = values[setting.uniqueID] ?? setting.value;
-                    switch (setting.type) {
-                        case 'number': {
-                            setting.value = isNaN(value) ? 0 : +value;
-                            break;
-                        }
-
-                        case 'checkbox': {
-                            if (typeof value === 'string') {
-                                setting.value = value === 'true';
-                                break;
-                            }
-
-                            setting.value = value;
-                            break;
-                        }
-
-                        default: {
-                            setting.value = value;
-                            break;
-                        }
-                    }
-                }
-
                 return {
                     settings,
-                    values,
-                    settingsPath,
-                    settingsValuesPath
+                    values
                 };
 
             case 'user/save':
@@ -93,7 +80,7 @@ export function parseCounterSettings(
 
                     switch (settings[find].type) {
                         case 'number': {
-                            settings[find].value = isNaN(setting.value)
+                            values[setting.uniqueID] = isNaN(setting.value)
                                 ? 0
                                 : +setting.value;
                             break;
@@ -101,27 +88,38 @@ export function parseCounterSettings(
 
                         case 'checkbox': {
                             if (typeof setting.value === 'string') {
-                                settings[find].value = setting.value === 'true';
+                                values[setting.uniqueID] =
+                                    setting.value === 'true';
                                 break;
                             }
 
-                            settings[find].value = setting.value;
+                            values[setting.uniqueID] = setting.value;
+                            break;
+                        }
+
+                        case 'options':
+                        case 'commands': {
+                            if (
+                                values[setting.uniqueID] === null &&
+                                values[setting.uniqueID] === undefined &&
+                                JSON.stringify(setting.value) ===
+                                    JSON.stringify(settings[find].value)
+                            )
+                                continue;
+
+                            values[setting.uniqueID] = setting.value;
                             break;
                         }
 
                         default: {
-                            settings[find].value = setting.value;
+                            values[setting.uniqueID] = setting.value;
                             break;
                         }
                     }
-
-                    values[setting.uniqueID] = settings[find].value;
                 }
 
                 return {
-                    settings,
                     values,
-                    settingsPath,
                     settingsValuesPath
                 };
 
@@ -154,12 +152,7 @@ export function parseCounterSettings(
                     }
                 }
 
-                return {
-                    settings,
-                    values,
-                    settingsPath,
-                    settingsValuesPath
-                };
+                return { values };
 
             case 'dev/save': {
                 if (!Array.isArray(payload)) {
@@ -199,8 +192,7 @@ export function parseCounterSettings(
 
                 return {
                     settings: payload,
-                    settingsPath,
-                    settingsValuesPath
+                    settingsPath
                 };
             }
         }

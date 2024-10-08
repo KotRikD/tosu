@@ -1,3 +1,6 @@
+const { createApp, ref } = Vue;
+
+
 const queryParams = new URLSearchParams(window.location.search);
 
 const BACKUP_SERVER_IP = document.querySelector('#SERVER_IP')?.value;
@@ -9,13 +12,816 @@ const tab = +(queryParams.get('tab') || 0);
 
 
 const search_bar = document.querySelector('.search-bar');
-
-let selectedCounter = '';
 let timer;
 
 let isSearching = false;
 let isClosingModal = false;
 let isBuilderModal = false;
+
+
+const settingsBuilder = {
+  props: {
+    folderName: {
+      type: String,
+      required: true,
+    },
+    settings: {
+      type: Array,
+      required: true,
+    }
+  },
+  setup(props) {
+    const settings = ref([
+      {
+        uniqueID: '',
+        type: 'text',
+        title: '',
+        description: '',
+        options: [],
+        value: '',
+      },
+    ]);
+
+    for (let i = 0; i < props.settings.length; i++) {
+      const setting = props.settings[i];
+      if (setting.type == 'options')
+        setting.options.push('');
+
+      else if (setting.type == 'commands') {
+        for (let o = 0; o < setting.options.length; o++) {
+          const option = setting.options[o];
+          if (option.type == 'options' && option.values[option.values.length - 1] != '')
+            option.values.push('');
+        };
+
+
+        setting.options.push({
+          type: "text",
+          name: "",
+          title: "",
+          description: "",
+          values: [],
+          value: ""
+        });
+
+        if (!Array.isArray(setting.value))
+          setting.value = [];
+
+        setting.value.push({});
+      };
+
+
+      settings.value.push(setting);
+    };
+
+
+    function highlight(element) {
+      element.classList.add('highlight');
+
+      setTimeout(() => {
+        element.classList.remove('highlight');
+      }, 100);
+    };
+
+
+    async function updateSettings(event) {
+      const confirmed = confirm(`Update settings?`);
+      if (!confirmed) return;
+
+      const element = event.target;
+
+      downloading.push('update-x2-settings');
+      const button_text = element.innerText;
+      startDownload(element);
+
+
+      try {
+        const _settings = settings.value.slice(1);
+        for (let i = 0; i < _settings.length; i++) {
+          const setting = _settings[i];
+          if (setting.type == 'options')
+            setting.options = setting.options.filter(r => r !== '' && r != null);
+
+          if (setting.type == 'commands') {
+            setting.options = setting.options.filter(r => r.name !== '' && r.name != null);
+            setting.options.forEach(r => {
+              if (r.values) r.values = r.values.filter(r => r !== '' && r != null);
+            });
+            setting.value = (setting.value || []).filter(r => Object.keys(r).length > 0);
+          };
+
+        };
+
+
+        // update settings in file
+        const request = await fetch(`/api/counters/settings/${props.folderName}?update=yes`, {
+          method: "POST",
+          body: JSON.stringify(_settings),
+        });
+        const json = await request.json();
+
+        if (json.error != null) {
+          if (typeof json.error == 'object') {
+            try {
+              json.error = JSON.stringify(json.error);
+            } catch (error) { };
+          };
+
+          displayNotification({
+            element: element,
+            text: `Error while updating settings: ${json.error}`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          setTimeout(() => {
+            endDownload(element, 'update-x2-settings', button_text);
+            element.classList.remove('disable');
+          }, 300);
+          return;
+        };
+
+
+        displayNotification({
+          element: element,
+          text: `Settings saved`,
+          classes: ['green'],
+          delay: 3000,
+        });
+
+
+        isBuilderModal = false;
+        closeModal(null);
+      } catch (error) {
+        console.error(error);
+        displayNotification({
+          element: element,
+          text: `Error while saving builder settings: ${error.name}`,
+          classes: ['red'],
+          delay: 3000,
+        });
+      } finally {
+        setTimeout(() => {
+          endDownload(element, 'update-x2-settings', button_text);
+          element.classList.remove('disable');
+        }, 400);
+      };
+    };
+
+
+    function sanitize(event) {
+      event.target.value = event.target.value.replace(/[^a-z0-9]/gim, '');
+    };
+
+
+    function addCommand(event, ind, ind2) {
+      const item = settings.value[ind2];
+      const value = item.value[ind];
+
+
+      const find = item.value.slice(0, item.value.length - 1).find(r => r[item.uniqueCheck] == value[item.uniqueCheck]);
+      if (find) {
+        displayNotification({
+          element: event.target,
+          text: `Command already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
+      const items = item.options.filter(r => r.name !== '');
+      const required = items.filter(r => r.required == true && r.name !== '' && r.type != 'checkbox');
+      if (required.length > 0) {
+        for (let i = 0; i < required.length; i++) {
+          const option = required[i];
+          if (value[option.name]) continue;
+
+          displayNotification({
+            element: event.target,
+            text: `Command «${option.name}» is required`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          return;
+        };
+      };
+
+
+      if (items.length == 0) {
+        displayNotification({
+          element: event.target,
+          text: 'Add at least one command option',
+          classes: ['red'],
+          delay: 3000,
+        });
+
+        return;
+      };
+
+
+      item.value.push({});
+    };
+
+
+    function pushOption(event, ind, index) {
+      const item = settings.value[index];
+      const value = item.options[ind];
+      if (value == '') {
+        highlight(event.target.parentNode.children[0]);
+        return;
+      };
+
+
+      const find = item.options.slice(0, ind).find(r => r.toLowerCase() == value.toLowerCase());
+      if (find) {
+        highlight(event.target.parentNode.children[0]);
+
+        displayNotification({
+          element: event.target,
+          text: `Option already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+      item.options.push('');
+
+
+      const items = event.target.parentNode.parentNode.children;
+      setTimeout(() => items[items.length - 1].children[0].focus(), 100);
+    };
+
+
+    function pushOptionValue(event, ind, ind2, index) {
+      const item = settings.value[index].options[ind];
+      const value = item.values[ind2];
+      if (value == '') {
+        highlight(event.target.parentNode.children[0]);
+        return;
+      };
+
+
+      const find = item.values.slice(0, ind2).find(r => r.toLowerCase() == value.toLowerCase());
+      if (find) {
+        highlight(event.target.parentNode.children[0]);
+
+        displayNotification({
+          element: event.target,
+          text: `Option already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+      item.values.push('');
+
+
+      const items = event.target.parentNode.parentNode.children;
+      setTimeout(() => items[items.length - 1].children[0].focus(), 100);
+    };
+
+
+    function pushCommandOption(event, ind, index) {
+      const item = settings.value[index];
+      const value = item.options[ind];
+      if (value.name == '') {
+        displayNotification({
+          element: event.target,
+          text: `Specify command name`,
+          classes: ['red'],
+          delay: 3000,
+        });
+
+        return;
+      };
+
+
+      const find = item.options.slice(0, ind).find(r => r.name == value.name);
+      if (find) {
+        displayNotification({
+          element: event.target,
+          text: `Command already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+
+        return;
+      };
+
+
+      if (value.type == 'options') {
+        if (value.values.length <= 0) {
+          displayNotification({
+            element: event.target,
+            text: `Specify at least 2 options`,
+            classes: ['red'],
+            delay: 3000,
+          });
+          return;
+        };
+
+
+        if (value.value == '') {
+          displayNotification({
+            element: event.target,
+            text: `Specify default option`,
+            classes: ['red'],
+            delay: 3000,
+          });
+          return;
+        };
+      };
+
+
+      item.options.push({
+        type: "text",
+        name: "",
+        title: "",
+        description: "",
+        values: [],
+        value: ""
+      });
+    };
+
+
+    function updateType(from, event, ind, ind2) {
+      const value = event.target.value;
+      if (from === '') {
+        const item = settings.value[ind];
+
+        if (value == 'checkbox') item.value = item.value === false || item.value === true ? item.value : false;
+        else if (value == 'options') {
+          if (item.options[item.options.length - 1] != '') item.options.push('');
+          item.options = item.options.filter(r => typeof r == 'string');
+
+          item.value = item.options[0] || '';
+        }
+        else if (value == 'commands') {
+          if (item.options[item.options.length - 1]?.name != '')
+            item.options.push({
+              type: "text",
+              name: "",
+              title: "",
+              description: "",
+              values: [],
+              value: ""
+            });
+
+          item.options = item.options.filter(r => typeof r == 'object');
+
+
+          item.value = [{}];
+        }
+        else item.value = '';
+
+        return;
+      };
+
+
+      if (from == 'command') {
+        const item = settings.value[ind2].options[ind];
+
+        if (value == 'checkbox') item.value = item.value === false || item.value === true ? item.value : false;
+        else if (value == 'options') {
+          if (item.values[item.values.length - 1] != '') item.values.push('');
+          item.value = item.values[0] || '';
+        }
+        else item.value = '';
+
+        return;
+      };
+    };
+
+
+    function deleteOption(ind, index, force) {
+      if (settings.value[index].options[ind] != '' && force != true) return;
+      if (force == true) {
+        const confirmed = confirm(`Delete option?`);
+        if (!confirmed) return;
+      };
+
+      settings.value[index].options.splice(ind, 1);
+    };
+
+
+    function deleteOptionValue(ind, ind2, index, force) {
+      if (settings.value[index].options[ind].values[ind2] != '' && force != true) return;
+      settings.value[index].options[ind].values.splice(ind2, 1);
+    };
+
+
+    function addSetting(event) {
+      const item = settings.value[0];
+      if (item.uniqueID == '') {
+        displayNotification({
+          element: event.target,
+          text: `Specify unique id`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
+      if (item.title == '') {
+        displayNotification({
+          element: event.target,
+          text: `Specify title`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+      if (item.value == '' && (item.type != 'checkbox' && item.type != 'password' && item.type != 'textarea' && item.type != 'commands')) {
+        let text = `Specify default value`;
+        if (item.type == 'button') text = 'Specify url';
+
+
+        displayNotification({
+          element: event.target,
+          text: text,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+      if (item.type == 'checkbox' && item.value == '') item.value = false;
+
+
+      if (item.type == 'options') {
+        const items = item.options.filter(r => r !== '' && r != null);
+        if (items.length <= 1) {
+          displayNotification({
+            element: event.target,
+            text: `Specify at least two options to choose`,
+            classes: ['red'],
+            delay: 3000,
+          });
+          return;
+        };
+      };
+
+
+      if (item.type == 'commands') {
+        if (item.options.length == 0) {
+          displayNotification({
+            element: event.target,
+            text: `Specify at least 1 default command`,
+            classes: ['red'],
+            delay: 3000,
+          });
+          return;
+        };
+      };
+
+
+      if (item.type == 'button') {
+        try {
+          new URL(item.value);
+        } catch (error) {
+          console.log(error);
+
+          displayNotification({
+            element: event.target,
+            text: 'Incorrect url',
+            classes: ['red'],
+            delay: 3000,
+          });
+          return;
+        };
+      };
+
+
+      const isExists = settings.value.slice(1).find(r => r.uniqueID == item.uniqueID);
+      if (isExists) {
+        displayNotification({
+          element: event.target,
+          text: `Setting with this unique id already exists`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
+      downloading.push('add-option');
+
+      const button_text = event.target.innerText;
+      startDownload(event.target);
+
+
+
+      settings.value.push({
+        uniqueCheck: item.uniqueCheck,
+        uniqueID: item.uniqueID,
+        type: item.type,
+        title: item.title,
+        description: item.description,
+        options: item.options,
+        value: item.value,
+      });
+
+      item.uniqueID = '';
+      item.type = 'text';
+      item.title = '';
+      item.description = '';
+      item.options = [];
+      item.value = '';
+
+
+      setTimeout(() => {
+        endDownload(event.target, 'add-option', button_text);
+        event.target.classList.remove('disable');
+
+      }, 500);
+
+      displayNotification({
+        element: event.target,
+        text: `Setting added`,
+        classes: ['green'],
+        delay: 3000,
+      });
+    };
+
+
+    function removeSetting(ind) {
+      const confirmed = confirm(`Delete option «${settings.value[ind].uniqueID}»?`);
+      if (!confirmed) return;
+
+
+      settings.value.splice(ind, 1);
+    };
+
+
+    function removeCommand(ind, ind2) {
+      const item = settings.value[ind2];
+      const confirmed = confirm(`Delete command?`);
+      if (!confirmed) return;
+
+
+      item.value.splice(ind, 1);
+    };
+
+
+    function closeit() {
+      isBuilderModal = false;
+      closeModal(null, window.builder.unmount);
+    };
+
+    return {
+      settings,
+      folderName: props.folderName,
+
+      updateSettings,
+
+      updateType,
+
+      addSetting,
+      addCommand,
+
+      pushOption,
+      pushOptionValue,
+      pushCommandOption,
+
+      deleteOption,
+      deleteOptionValue,
+
+      removeSetting,
+      removeCommand,
+      sanitize,
+
+      closeit,
+    };
+  },
+  template: `<div class="m-content"><h2 class="ms-title"><span>Settings Builder</span><span>«{{folderName}}»</span></h2><div class="m-scroll settings-container"><div v-for="(i, index) in settings" class="settings-item" :class="{'new-item': index == 0}"><div class="ni-row-1"><div class="si flexer ni-type"><select :disabled="index > 0" @change="updateType('', $event, index)" v-model="i.type"><option value="text">Text</option><option value="color">Color</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="button">Button link</option><option value="options">Options</option><option value="commands">Commands</option><option value="textarea">Text area</option><option value="password">Secret value</option></select></div><div class="si flexer ni-unique"><input type="text" placeholder="Unique id" @input="sanitize" v-model="i.uniqueID"></div><div class="si flexer ni-title"><input type="text" placeholder="Title" v-model="i.title"></div></div><div class="si flexer ni-description"><textarea placeholder="Description" rows="2" v-model="i.description"></textarea></div><div class="ni-row-3"><div v-if="i.type == 'color'" class="si flexer ni-value"><input type="color" v-model="i.value"></div><label v-else-if="i.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="i.value"><span class="checkmark"></span><span class="status"></span></label><div v-else-if="i.type == 'options'"><div class="ni-options"><div v-for="(o, ind) in i.options" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="i.options[ind]" @change="ind == i.options.length - 1 ? pushOption($event, ind, index) : deleteOption(ind, index)" @keyup.enter="ind == i.options.length - 1 ? pushOption($event, ind, index) : ''"><i v-if="ind == i.options.length - 1" class="icon-plus" @click="pushOption($event, ind, index)"></i><i v-else class="icon-delete" @click="deleteOption(ind, index, true)"></i></div></div><div class="si flexer nid-value"><span>Select default option</span><select v-model="i.value"><option v-for="v in i.options.filter(r=> r !== '')" :value="v" v-text="v"></option></select></div></div><div v-else-if="i.type == 'commands'"><h3>Commands options</h3><p class="ni-p">Define commands options</p><div class="ni-commands"><div v-for="(o, ind) in i.options" class="nic-container"><div class="si nic-content flexer"><label v-if="o.type != 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="o.required"><span class="checkmark"></span><span>required</span></label><select @change="updateType('command', $event, ind, index)" v-model="o.type"><option value="text">Text</option><option value="number">Number</option><option value="checkbox">Toggle</option><option value="options">Options</option></select><input type="text" placeholder="name" v-model="o.name"> <input type="text" placeholder="title" v-model="o.title"> <input type="text" placeholder="description" v-model="o.description"> <input v-if="o.type == 'text'" type="text" placeholder="default value" v-model="o.value"> <input v-else-if="o.type == 'number'" type="number" placeholder="default value" v-model="o.value"><label v-else-if="o.type == 'checkbox'" class="si-checkbox"><input type="checkbox" v-model="o.value"><span class="checkmark"></span><span class="status"></span></label><button v-if="ind == i.options.length - 1" class="button add-option-button flexer" @click="pushCommandOption($event, ind, index)"><span>+</span></button><button v-else class="button remove-option-button flexer" @click="deleteOption(ind, index, true)"><span>-</span></button></div><div v-if="o.type == 'options'" class="nic-options flexer"><div v-for="(v, ind2) in o.values" class="si ni-option flexer"><input type="text" placeholder="option name" v-model="o.values[ind2]" @change="ind2 == o.values.length - 1 ? pushOptionValue($event, ind, ind2, index) : deleteOptionValue(ind, ind2, index)" @keyup.enter="ind2 == o.values.length - 1 ? pushOptionValue($event, ind, ind2, index) : ''"><i v-if="ind2 == o.values.length - 1" class="icon-plus" @click="pushOptionValue($event, ind, ind2, index)"></i><i v-else class="icon-delete" @click="deleteOptionValue(ind,ind2, index, true)"></i></div></div><div v-if="o.type == 'options'" class="si flexer nid-value"><span>Select default option</span><select v-model="o.value"><option v-for="v in o.values.filter(r=> r !== '')" :value="v" v-text="v"></option></select></div><hr></div></div><div class="mtb-1 g05 flexer"><h3>Unique option</h3><select class="fgrow" v-model="i.uniqueCheck"><option v-for="v in i.options.filter(r=> r.name !== '')" :value="v.name" v-text="v.name"></option></select></div><h3>Default commands</h3><div class="ni-dcommands si block"><div v-for="(v, ind) in i.value" class="sc-commands"><div class="scc-item flexer empty"><div v-for="o in i.options.filter(r=> r.name != '')" class="scci-item"><h4 v-text="o.title"></h4><p v-text="o.description"></p><input v-if="o.type == 'text'" class="fgrow" type="text" v-model="v[o.name]"> <input v-else-if="o.type == 'number'" class="fgrow" type="number" v-model="v[o.name]"><label v-else-if="o.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="v[o.name]"><span class="checkmark"></span><span class="status"></span></label><select v-else-if="o.type == 'options'" class="fgrow" v-model="v[o.name]"><option v-for="v in o.values" :value="v" v-text="v"></option></select></div></div><div class="si-btns flexer si-btn"><button v-if="ind == i.value.length-1" class="button add-option-button flexer" @click="addCommand($event, ind, index)"><span>Add new command</span></button><button v-else class="button remove-option-button flexer" @click="removeCommand(ind, index)"><span>Remove command</span></button></div><hr></div></div></div><div v-else-if="i.type == 'textarea'" class="si flexer ni-description"><textarea placeholder="Default value" rows="3" v-model="i.value"></textarea></div><div v-else class="si flexer ni-value"><input v-if="i.type == 'text'" type="text" placeholder="Default value" v-model="i.value"> <input v-else-if="i.type == 'button'" type="text" placeholder="Specify url" v-model="i.value"> <input v-else-if="i.type == 'number'" type="number" placeholder="Default number" v-model="i.value"> <input v-else-if="i.type == 'password'" type="password" placeholder="Default secret value" v-model="i.value"></div></div><div class="si-btns flexer si-btn"><button v-if="index == 0" class="button add-option-button flexer" @click="addSetting($event)"><span>Add new setting</span></button><button v-else class="button remove-option-button flexer" @click="removeSetting(index)"><span>Remove setting</span></button></div></div></div><div class="ms-btns flexer si-btn"><button class="button update-x2-settings-button flexer" @click="updateSettings"><span>Update settings</span></button><button class="button cancel-button flexer" @click="closeit"><span>Cancel</span></button></div></div>`
+};
+
+const showSettings = {
+  props: {
+    folderName: {
+      type: String,
+      required: true,
+    },
+    settings: {
+      type: Array,
+      required: true,
+    },
+    values: {
+      type: Array,
+      required: true,
+    },
+  },
+  setup(props) {
+    const settings = ref([]);
+    for (let i = 0; i < props.settings.length; i++) {
+      const setting = props.settings[i];
+      let value = props.values[setting.uniqueID] ?? setting.value;
+      if (setting.type == "commands") {
+        setting.options.forEach(r => {
+          if (r.values) r.values = r.values.filter(r => r !== '' && r != null);
+        });
+
+        if (!Array.isArray(value)) value = [];
+        value.push({});
+      };
+
+
+      if (props.values[setting.uniqueID]) {
+        value = props.values[setting.uniqueID];
+      }
+
+      setting.value = value;
+      settings.value.push(setting);
+    };
+
+
+    function addCommand(event, ind, ind2) {
+      const item = settings.value[ind2];
+      const value = item.value[ind];
+
+
+      const find = item.value.slice(0, item.value.length - 1).find(r => r[item.uniqueCheck] == value[item.uniqueCheck]);
+      if (find) {
+        displayNotification({
+          element: event.target,
+          text: `Command already exists1`,
+          classes: ['red'],
+          delay: 3000,
+        });
+        return;
+      };
+
+
+      const items = item.options.filter(r => r.name !== '');
+      const required = items.filter(r => r.required == true && r.name !== '' && r.type != 'checkbox');
+      if (required.length > 0) {
+        for (let i = 0; i < required.length; i++) {
+          const option = required[i];
+          if (value[option.name]) continue;
+
+          displayNotification({
+            element: event.target,
+            text: `Command «${option.name}» is required`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          return;
+        };
+      };
+
+
+      if (items.length == 0) {
+        displayNotification({
+          element: event.target,
+          text: 'Add at least one command option',
+          classes: ['red'],
+          delay: 3000,
+        });
+
+        return;
+      };
+
+
+      item.value.push({});
+    };
+
+
+    async function updateSettings(event) {
+      const confirmed = confirm(`Update settings?`);
+      if (!confirmed) return;
+
+      const element = event.target;
+
+      downloading.push('update-settings');
+      const button_text = element.innerText;
+      startDownload(element);
+
+
+      try {
+        const _settings = JSON.parse(JSON.stringify(settings.value.slice(1)));
+        for (let i = 0; i < _settings.length; i++) {
+          const setting = _settings[i];
+          if (setting.type == 'commands') {
+            setting.options = setting.options.filter(r => r.name !== '' && r.name != null);
+            setting.options.forEach(r => {
+              if (r.values) r.values = r.values.filter(r => r !== '' && r != null);
+            });
+            setting.value = (setting.value || []).filter(r => Object.keys(r).length > 0);
+          };
+        };
+
+        const values = _settings.map(r => ({ uniqueID: r.uniqueID, value: r.value }));
+
+
+        const request = await fetch(`/api/counters/settings/${props.folderName}`, {
+          method: "POST",
+          body: JSON.stringify(values),
+        });
+        const json = await request.json();
+
+        if (json.error != null) {
+          if (typeof json.error == 'object') {
+            try {
+              json.error = JSON.stringify(json.error);
+            } catch (error) { };
+          };
+
+          displayNotification({
+            element: element,
+            text: `Error while saving: ${json.error}`,
+            classes: ['red'],
+            delay: 3000,
+          });
+
+          setTimeout(() => {
+            endDownload(element, 'update-settings', button_text);
+            element.classList.remove('disable');
+          }, 300);
+          return;
+        };
+
+
+        displayNotification({
+          element: element,
+          text: `Settings saved`,
+          classes: ['green'],
+          delay: 3000,
+        });
+      } catch (error) {
+        console.error(error);
+        displayNotification({
+          element: element,
+          text: `Error while saving builder settings: ${error.name}`,
+          classes: ['red'],
+          delay: 3000,
+        });
+      } finally {
+        setTimeout(() => {
+          endDownload(element, 'update-settings', button_text);
+          element.classList.remove('disable');
+        }, 400);
+      };
+    };
+
+
+    function removeCommand(ind, ind2) {
+      const item = settings.value[ind2];
+      const confirmed = confirm(`Delete command?`);
+      if (!confirmed) return;
+
+
+      item.value.splice(ind, 1);
+    };
+
+
+    function mrkdwn(text) {
+      let markdown = text;
+
+      markdown = markdown.replace(/<[^>]+>.*?<\/[^>]+>/g, '');
+      markdown = markdown.replace(/<[^>]+>|<\/[^>]+>/g, '');
+
+      // Replace bold and italic
+      markdown = markdown.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      markdown = markdown.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+      // Replace inline code
+      markdown = markdown.replace(/`(.+?)`/g, '<code>$1</code>');
+
+      // Replace links
+      markdown = markdown.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+      return markdown;
+    };
+
+
+    function closeit() {
+      isBuilderModal = false;
+      closeModal(null, window.counter_settings.unmount);
+    };
+
+
+    return {
+      mrkdwn,
+      settings,
+      folderName: props.folderName,
+      updateSettings,
+
+      addCommand,
+      removeCommand,
+
+      closeit,
+    };
+  },
+  template: `<div class="m-content"><h2 class="ms-title"><span>Settings</span><span>«{{folderName}}»</span></h2><div class="m-scroll settings-container"><div v-for="(i, index) in settings"><div class="si flexer" :class="{ 'block txt-area': i.type == 'textarea', block: i.type == 'commands' }"><div><h4 v-text="i.title"></h4><p v-html="mrkdwn(i.description)"></p></div><input v-if="i.type == 'text'" class="fgrow" type="text" v-model="i.value"> <input v-else-if="i.type == 'number'" class="fgrow" type="number" v-model="i.value"> <input v-else-if="i.type == 'color'" class="fgrow" type="color" v-model="i.value"> <input v-else-if="i.type == 'password'" class="fgrow" type="password" v-model="i.value"><a v-else-if="i.type == 'button'" class="button open-link-button flexer" :href="i.value" target="_blank"><span>open link</span><i class="icon-link"></i></a><label v-else-if="i.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="i.value"><span class="checkmark"></span><span class="status"></span></label><textarea v-else-if="i.type == 'textarea'" v-model="i.value"></textarea><select v-else-if="i.type == 'options'" class="fgrow" v-model="i.value"><option v-for="o in i.options" :value="o" v-text="o"></option></select><div v-else-if="i.type == 'commands'" class="sc-commands"><hr><div v-for="(v, ind) in i.value" class="sc-commands"><div class="scc-item flexer empty"><div v-for="o in i.options.filter(r=> r.name != '')" class="scci-item"><h4 v-text="o.title"></h4><p v-text="o.description"></p><input v-if="o.type == 'text'" class="fgrow" type="text" v-model="v[o.name]"> <input v-else-if="o.type == 'number'" class="fgrow" type="number" v-model="v[o.name]"><label v-else-if="o.type == 'checkbox'" class="si-checkbox fgrow sic-start"><input type="checkbox" v-model="v[o.name]"><span class="checkmark"></span><span class="status"></span></label><select v-else-if="o.type == 'options'" class="fgrow" v-model="v[o.name]"><option v-for="v in o.values" :value="v" v-text="v"></option></select></div></div><div class="si-btns flexer si-btn"><button v-if="ind == i.value.length-1" class="button add-option-button flexer" @click="addCommand($event, ind, index)"><span>Add new command</span></button><button v-else class="button remove-option-button flexer" @click="removeCommand(ind, index)"><span>Remove command</span></button></div><hr></div></div></div></div></div><div class="ms-btns flexer si-btn"><button class="button update-settings-button flexer" @click="updateSettings"><span>Update settings</span></button><button class="button cancel-button flexer" @click="closeit"><span>Cancel</span></button></div></div>`
+};
 
 
 document.querySelectorAll(`a`).forEach(r => {
@@ -114,70 +920,60 @@ function endDownload(element, id, text) {
   };
 }
 
-async function downloadCounter(element, id) {
+async function downloadCounter(element, id, update) {
   if (downloading.includes(id)) return;
 
   downloading.push(id);
 
-  const url = element.attributes.l?.value;
+  const folderName = element.attributes.l?.value;
   const name = element.attributes.n?.value;
   const author = element.attributes.a?.value;
 
-  const download = await fetch(`/api/counters/download/${url}?name=${name} by ${author}`);
+  const url = new URL(`http://${window.location.host}/api/counters/download/${folderName}`);
+  url.searchParams.append('name', `${name} by ${author}`);
+  if (update == true) url.searchParams.append('update', 'true');
+
+  const download = await fetch(url);
   const json = await download.json();
 
   if (json.error != null) {
     if (typeof json.error == 'object') {
       try {
         json.error = JSON.stringify(json.error);
-      } catch (error) { }
+      } catch (error) { };
     };
 
     displayNotification({
-      element: element.parentElement.parentElement.parentElement,
+      element: element.parentElement.parentElement,
       text: `Error while downloading: ${json.error}`,
       classes: ['red'],
       delay: 3000,
     });
 
     setTimeout(() => {
-        endDownload(element, id, 'Download');
-        element.classList.remove('disable');
+      endDownload(element, id, 'Download');
+      element.classList.remove('disable');
     }, 101);
     return;
   };
 
+
+  let text = `PP Counter downloaded: ${name} by ${author}`;
+  if (update == true) text = `PP Counter updated: ${name} by ${author}<br>Refresh it in obs (if you have one added)`;
+
   displayNotification({
-    element: element.parentElement.parentElement.parentElement,
-    text: `PP Counter downloaded: ${name} by ${author}`,
+    element: element.parentElement.parentElement,
+    text: text,
     classes: ['green'],
-    delay: 3000,
+    delay: 5000,
   });
 
   endDownload(element, id, 'Downloaded');
 };
 
-function tabSwitch(element) {
-  document.querySelector(`.tabs>.tab-item:nth-child(${+tab + 1})`)?.classList.remove('active');
-
-  switch (element.innerText.toLowerCase()) {
-    case 'installed':
-      tab = 0;
-      break;
-    case 'pp counters':
-      tab = 1;
-      break;
-  };
-
-  history.pushState(null, null, `/?tab=${tab}`)
-
-  localStorage.setItem('tab', tab);
-  element.classList.add('active');
-};
-
 function displayNotification({ element, text, classes, delay }) {
   const div = document.createElement('div');
-  const size = div.getBoundingClientRect();
+  // const size = div.getBoundingClientRect();
   div.classList.add('notification');
   div.classList.add('hidden');
   if (Array.isArray(classes)) div.classList.add(...classes);
@@ -185,8 +981,8 @@ function displayNotification({ element, text, classes, delay }) {
   const targetRect = element.getBoundingClientRect();
   const bodyRect = document.querySelector('main').getBoundingClientRect();
   const leftOffset = targetRect.left - bodyRect.left;
-  const topOffset = targetRect.top - bodyRect.top;
-  const rightOffset = bodyRect.right - targetRect.right;
+  // const topOffset = targetRect.top - bodyRect.top;
+  // const rightOffset = bodyRect.right - targetRect.right;
   const bottomOffset = bodyRect.bottom - targetRect.bottom;
 
   const divSize = getSizeOfElement(div);
@@ -194,7 +990,7 @@ function displayNotification({ element, text, classes, delay }) {
   div.style.left = leftOffset;
   div.style.bottom = bottomOffset - divSize.height - 5;
 
-  div.innerText = text;
+  div.innerHTML = text;
 
 
   document.querySelector('main').appendChild(div);
@@ -282,11 +1078,11 @@ async function openCounter(element) {
 
 
   if (folderName == 'tosu.exe') {
-    success_text = 'Tosu folder opened'
+    success_text = 'Tosu folder opened';
     target = element.parentElement;
   }
   else if (folderName == 'static.exe') {
-    success_text = 'Static folder opened'
+    success_text = 'Static folder opened';
     target = element;
   };
 
@@ -321,14 +1117,8 @@ function handleInput() {
 
   timer = setTimeout(() => {
     startSearch();
-  }, 600);
+  }, 300);
 };
-
-function handleKeyDown(event) {
-  if (event.keyCode === 13) {
-    startSearch(event);
-  };
-}
 
 async function startSearch(search) {
   if (isSearching == true) return;
@@ -430,7 +1220,7 @@ async function saveSettings(element) {
     const ip = SERVER_IP.value == '0.0.0.0' ? 'localhost' : SERVER_IP.value;
 
     setTimeout(() => {
-      window.location.href = `http://${ip}:${SERVER_PORT.value}${window.location.pathname}${window.location.search}`
+      window.location.href = `http://${ip}:${SERVER_PORT.value}${window.location.pathname}${window.location.search}`;
     }, 300);
 
     element.classList.remove('disable');
@@ -443,10 +1233,11 @@ async function saveSettings(element) {
   }, 300);
 };
 
-function displayModal({ content, classes }) {
+function displayModal(callback, id, classes) {
   const div = document.createElement('div');
   if (Array.isArray(classes)) div.classList.add(...classes);
 
+  if (id) div.id = id;
   div.classList.add('modal');
   div.classList.add('hidden');
 
@@ -454,18 +1245,19 @@ function displayModal({ content, classes }) {
 
   const wrapper = document.createElement('div');
   wrapper.classList.add('m-content');
-  wrapper.innerHTML = content;
+  if (typeof callback == 'string') wrapper.innerHTML = callback;
 
   div.appendChild(wrapper);
 
   document.body.appendChild(div);
+  if (typeof callback == 'function') callback();
 
   setTimeout(() => {
     div.classList.remove('hidden');
   }, 10);
 };
 
-function closeModal(event) {
+function closeModal(event, callback) {
   const block = document.querySelector('.m-content');
   if (!block || isClosingModal) return;
 
@@ -492,6 +1284,8 @@ function closeModal(event) {
     modal.classList.add('hidden');
 
     setTimeout(() => {
+      if (typeof callback == 'function') callback();
+
       document.body.removeChild(modal);
       isClosingModal = false;
     }, 601);
@@ -523,91 +1317,15 @@ async function loadCounterSettings(element) {
   };
 
 
-  displayModal({ content: json.result });
-};
-
-async function updateCounterSettings(element) {
-  if (downloading.includes('update-settings')) return;
-  downloading.push('update-settings');
-
-  const result = [];
-  const folderName = decodeURI(element.attributes.n?.value || '');
-
-  document.querySelectorAll('[ucs]').forEach((value, key) => {
-    const type = value.attributes.getNamedItem('t').value;
-    const obj = {
-      uniqueID: value.id,
-      value: value.value,
-    };
-
-    if (type == 'checkbox') obj.value = value.checked;
-
-    result.push(obj);
-  });
-
-  if (result.length == 0) {
-    displayNotification({
-      element: element,
-      text: `Nothing to save`,
-      classes: ['yellow'],
-      delay: 3000,
+  displayModal(() => {
+    window.counter_settings = createApp(showSettings, {
+      folderName,
+      settings: Array.isArray(json?.settings) ? json.settings : [],
+      values: typeof json?.values == 'object' && !Array.isArray(json?.values) ? json.values : {},
     });
 
-
-    setTimeout(() => {
-      endDownload(element, 'update-settings', 'Update settings');
-      element.classList.remove('disable');
-    }, 300);
-    return;
-  };
-
-  const request = await fetch(`/api/counters/settings/${folderName}`, {
-    method: "POST",
-    body: JSON.stringify(result),
-  });
-  const json = await request.json();
-
-  if (json.error != null) {
-    if (typeof json.error == 'object') {
-      try {
-        json.error = JSON.stringify(json.error);
-      } catch (error) { };
-    };
-
-    displayNotification({
-      element: element,
-      text: `Error while saving: ${json.error}`,
-      classes: ['red'],
-      delay: 3000,
-    });
-
-    setTimeout(() => {
-      endDownload(element, 'save-settings', 'Save settings');
-      element.classList.remove('disable');
-    }, 300);
-    return;
-  };
-
-
-  displayNotification({
-    element: element,
-    text: `Settings updated: ${folderName}`,
-    classes: ['green'],
-    delay: 3000,
-  });
-
-  // const iframe = document.querySelector(`iframe[n="${folderName}"]`);
-  // const url = iframe.src;
-
-  // iframe.src = '';
-
-  setTimeout(() => {
-    endDownload(element, 'update-settings', 'Update settings');
-    element.classList.remove('disable');
-    // iframe.src = url;
-
-    // closeModal();
-  }, 300);
+    window.counter_settings.mount('#showSettings');
+  }, 'showSettings');
 };
 
 async function startUpdate(element) {
@@ -667,71 +1385,9 @@ async function startUpdate(element) {
 };
 
 
-// {/* <div class="si flexer">
-//   <div>
-//     <h4>Unique id</h4>
-//     <p>it's shouldn't repeat</p>
-//   </div>
-//   <input type="text" id="{ID}_unique_id" value="{VALUE}">
-// </div> */}
-const optionHTML = `
-<div id="{ID}" class="sbi">
-  <div class="si flexer">
-    <div{as}>
-      <h4>Unique ID</h4>
-    </div>
-    <input type="text" class="{class}" id="{ID}___uniqueID" value="{UNIQUEID_VALUE}" {ADDON}>
-  </div>
-  <div class="si flexer">
-    <div{as}>
-      <h4>Type</h4>
-    </div>
-    <select class="{class}" id="{ID}___type">
-      <option {text_SELECTED} value="text">Text</option>
-      <option {number_SELECTED} value="number">Number</option>
-      <option {color_SELECTED} value="color">Color</option>
-      <option {checkbox_SELECTED} value="checkbox">Toggle</option>
-      <option {options_SELECTED} value="options">Dropdown select</option>
-      <option {password_SELECTED} value="password">Password/Secret value</option>
-    </select>
-  </div>
-  <div class="si flexer">
-    <div{as}>
-      <h4>Title</h4>
-    </div>
-    <input type="text" class="{class}" id="{ID}___title" value="{TITLE_VALUE}">
-  </div>
-  <div class="si flexer">
-    <div{as}>
-      <h4>Description</h4>
-      <p></p>
-    </div>
-    <input type="text" class="{class}" id="{ID}___description" value="{DESCRIPTION_VALUE}">
-  </div>
-  <div class="si flexer" {OPTIONS}>
-    <div{as}>
-      <h4>Options</h4>
-      <p>List of options separated by comma</p>
-    </div>
-    <input type="text" class="{class}" id="{ID}___options" value="{OPTIONS_VALUE}">
-  </div>
-  <div class="si flexer">
-    <div{as}>
-      <h4>Default value</h4>
-    </div>
-    <input type="text" class="{class}" id="{ID}___value" value="{VALUE}">
-  </div>
-  {BUTTONS}
-</div>
-`
-
 async function startBuilderModal(element) {
   const folderName = decodeURI(element.attributes.n?.value || '');
-
-  let html = '';
   let json = '';
-
-  selectedCounter = folderName;
 
   try {
     const download = await fetch(`${window.location.origin}/${folderName}/settings.json`);
@@ -739,353 +1395,17 @@ async function startBuilderModal(element) {
   } catch (error) { };
 
 
-  const header = `<h2 class="ms-title"><span>Settings Builder</span><span>«${folderName}»</span></h2>`;
-  const buttons = `<div class="ms-btns flexer si-btn">
-        <button class="button update-x2-settings-button flexer" n="${folderName}"><span>Update settings</span></button>
-        <button class="button cancel-button flexer"><span>Cancel</span></button>
-    </div>`;
+  displayModal(() => {
+    window.builder = createApp(settingsBuilder, {
+      folderName,
+      settings: Array.isArray(json) ? json : [],
+    });
 
-
-  const new_item = optionHTML
-    .replace(/{BUTTONS}/gm, '')
-    .replace(/{class}/gm, '')
-    .replace(/{as}/gm, '')
-    .replace(/{ID}/gm, 'new')
-    .replace("{UNIQUEID_VALUE}", '')
-    .replace("{TITLE_VALUE}", '')
-    .replace("{DESCRIPTION_VALUE}", '')
-    .replace("{OPTIONS}", 'style="display:none;"')
-    .replace("{OPTIONS_VALUE}", '')
-    .replace("{VALUE}", '')
-    .replace("{ADDON}", `onchange="sanitize(this);"`)
-    .replace(/{text_SELECTED}/gm, '')
-    .replace(/{number_SELECTED}/gm, '')
-    .replace(/{password_SELECTED}/gm, '')
-    .replace(/{checkbox_SELECTED}/gm, '')
-    .replace(/{options_SELECTED}/gm, '');
-
-  if (json.error == null) {
-    for (let i = 0; i < json.length; i++) {
-      const option = json[i];
-
-      html += optionHTML
-        .replace(/{BUTTONS}/gm, `
-        <div class="oab flexer">
-          <button did="${option.uniqueID}" class="button remove-option-button flexer"><span>Remove option</span></button>
-        </div>`)
-        .replace(/{class}/gm, 'OPTION')
-        .replace(/{as}/gm, ' style="width: 10em"')
-        .replace(/{ID}/gm, option.uniqueID)
-        .replace("{UNIQUEID_VALUE}", option.uniqueID)
-        .replace("{TITLE_VALUE}", option.title)
-        .replace("{DESCRIPTION_VALUE}", option.description)
-        .replace("{OPTIONS}", option.type == 'options' ? '' : 'style="display:none;"')
-        .replace("{OPTIONS_VALUE}", Array.isArray(option.options) ? option.options.join(',') : option.options)
-        .replace("{VALUE}", option.value)
-        .replace("{ADDON}", `onchange="renamer(this)"`)
-        .replace(/{text_SELECTED}/gm, option.type == 'text' ? `selected="selected"` : '')
-        .replace(/{number_SELECTED}/gm, option.type == 'number' ? `selected="selected"` : '')
-        .replace(/{color_SELECTED}/gm, option.type == 'color' ? `selected="selected"` : '')
-        .replace(/{password_SELECTED}/gm, option.type == 'password' ? `selected="selected"` : '')
-        .replace(/{checkbox_SELECTED}/gm, option.type == 'checkbox' ? `selected="selected"` : '')
-        .replace(/{options_SELECTED}/gm, option.type == 'options' ? `selected="selected"` : '');
-
-      // if (i != json.length - 1)
-      //   html += '\n<hr class="modal-space">\n'
-    };
-  };
-
-
-  const scroll = `
-  <div class="m-scroll">
-    <div class="new-item" style="position: sticky; top: 0; z-index: 1;">
-      ${new_item}
-      <div class="ms-btns flexer si-btn">
-        <button class="button add-option-button flexer" n="${folderName}"><span>Add new option</span></button>
-      </div>
-    </div>
-    ${html}
-  </div>`;
+    window.builder.mount('#settingsBuilder');
+  }, 'settingsBuilder');
 
   isBuilderModal = true;
-  displayModal({ content: `${header}${scroll}${buttons}` });
-  return;
 };
-
-
-async function builderNewOption(element) {
-  const content = document.querySelector('.m-scroll');
-  if (!content) {
-    return;
-  };
-
-  if (downloading.includes('add-option')) return;
-  downloading.push('add-option');
-
-  const button_text = element.innerText;
-  startDownload(element);
-
-
-  const uniqueID = document.getElementById('new___uniqueID');
-  const type = document.getElementById('new___type');
-  const title = document.getElementById('new___title');
-  const description = document.getElementById('new___description');
-  const options = document.getElementById('new___options');
-  const default_value = document.getElementById('new___value');
-
-  const payload = {
-    setting: {
-      uniqueID: (uniqueID.value || '').replace(/[^a-z0-9]/gim, ''),
-      type: type.value,
-      title: title.value,
-      description: description.value,
-      options: options.value,
-      value: default_value.value,
-    },
-    value: default_value.value,
-  };
-
-
-  try {
-    if (payload.setting.title == '') {
-      displayNotification({
-        element: element,
-        text: `Specify title`,
-        classes: ['red'],
-        delay: 3000,
-      });
-      return;
-    };
-
-    if (payload.value == '' && payload.setting.type != 'password') {
-      displayNotification({
-        element: element,
-        text: `Specify default value`,
-        classes: ['red'],
-        delay: 3000,
-      });
-      return;
-    };
-
-    if (payload.setting.type == 'options') {
-      const toArray = (payload.setting.options || '')
-        .split(',')
-        .filter(r => r);
-
-      if (toArray.length <= 1) {
-        displayNotification({
-          element: element,
-          text: `Specify at least two options to choose`,
-          classes: ['red'],
-          delay: 3000,
-        });
-        return;
-      };
-    };
-
-    let isExists = document.querySelector(`#${payload.setting.uniqueID}___uniqueID`);
-    if (isExists) {
-      displayNotification({
-        element: element,
-        text: `Option with this title already exists`,
-        classes: ['red'],
-        delay: 3000,
-      });
-      return;
-    };
-
-    const html = optionHTML
-      .replace(/{BUTTONS}/gm, `
-        <div class="oab flexer">
-          <button did="${payload.setting.uniqueID}" class="button remove-option-button flexer"><span>Remove option</span></button>
-        </div>`)
-      .replace(/{class}/gm, 'OPTION')
-      .replace(/{as}/gm, ' style="width: 10em"')
-      .replace(/{ID}/gm, payload.setting.uniqueID)
-      .replace("{UNIQUEID_VALUE}", payload.setting.uniqueID)
-      .replace("{TITLE_VALUE}", payload.setting.title)
-      .replace("{DESCRIPTION_VALUE}", payload.setting.description)
-      .replace("{OPTIONS}", payload.setting.type == 'options' ? '' : 'style="display:none;"')
-      .replace("{OPTIONS_VALUE}", Array.isArray(payload.setting.options) ? payload.setting.options.join(',') : payload.setting.options)
-      .replace("{VALUE}", payload.value)
-      .replace("{ADDON}", `onchange="renamer(this)"`)
-      .replace(/{text_SELECTED}/gm, payload.setting.type == 'text' ? `selected="selected"` : '')
-      .replace(/{number_SELECTED}/gm, payload.setting.type == 'number' ? `selected="selected"` : '')
-      .replace(/{color_SELECTED}/gm, payload.setting.type == 'color' ? `selected="selected"` : '')
-      .replace(/{password_SELECTED}/gm, payload.setting.type == 'password' ? `selected="selected"` : '')
-      .replace(/{checkbox_SELECTED}/gm, payload.setting.type == 'checkbox' ? `selected="selected"` : '')
-      .replace(/{options_SELECTED}/gm, payload.setting.type == 'options' ? `selected="selected"` : '')
-
-    displayNotification({
-      element: element,
-      text: `Option added`,
-      classes: ['green'],
-      delay: 3000,
-    });
-
-    if (uniqueID) uniqueID.value = '';
-    if (title) title.value = '';
-    if (description) description.value = '';
-    if (default_value) default_value.value = '';
-
-    // if (content.innerHTML.includes('width: 10em')) content.innerHTML += '\n<hr class="modal-space">\n';
-    content.insertAdjacentHTML('beforeend', html);
-  } catch (error) {
-    console.error(error);
-    displayNotification({
-      element: content,
-      text: `Error while adding option: ${error.name}`,
-      classes: ['red'],
-      delay: 3000,
-    });
-  } finally {
-    setTimeout(() => {
-      endDownload(element, 'add-option', button_text);
-      element.classList.remove('disable');
-    }, 400);
-  };
-};
-
-
-async function builderSaveSettings(element) {
-  if (downloading.includes('update-x2-settings')) return;
-  downloading.push('update-x2-settings');
-
-  const button_text = element.innerText;
-  startDownload(element);
-
-  const uniqueID = document.getElementById('new___uniqueID');
-  const title = document.getElementById('new___title');
-  const description = document.getElementById('new___description');
-  const default_value = document.getElementById('new___value');
-
-
-  try {
-    // check if new option fields are not empty
-    if (
-      uniqueID.value ||
-      title.value ||
-      description.value ||
-      default_value.value
-    ) {
-      displayNotification({
-        element: element,
-        text: `«New Option» is not added to the list`,
-        classes: ['yellow'],
-        delay: 3000,
-      });
-      return;
-    };
-
-
-    // get all options values
-    const array = [];
-    document.querySelectorAll('.OPTION').forEach(r => {
-      const [id, field] = r.id.split('___');
-
-      const obj = {};
-      let value = r.value;
-      if (field.toLowerCase() == 'uniqueid') value = value.replace(/[^a-z0-9]/gim, '');
-
-      obj[field] = value;
-
-
-      const find = array.find(r => r.uniqueID == id);
-      if (find) {
-        if (find.type == 'options' && field == 'options') {
-          find[field] = value.split(',').filter(r => r);
-          return;
-        };
-
-
-        find[field] = value;
-        return;
-      };
-
-      array.push(obj);
-    });
-
-    // if (array.length == 0) {
-    //   displayNotification({
-    //     element: element,
-    //     text: `Add at least one option`,
-    //     classes: ['yellow'],
-    //     delay: 3000,
-    //   });
-    //   return;
-    // };
-
-
-    // update settings in file
-    const request = await fetch(`/api/counters/settings/${selectedCounter}?update=yes`, {
-      method: "POST",
-      body: JSON.stringify(array),
-    });
-    const json = await request.json();
-
-    if (json.error != null) {
-      if (typeof json.error == 'object') {
-        try {
-          json.error = JSON.stringify(json.error);
-        } catch (error) { };
-      };
-
-      displayNotification({
-        element: element,
-        text: `Error while updating settings: ${json.error}`,
-        classes: ['red'],
-        delay: 3000,
-      });
-
-      setTimeout(() => {
-        endDownload(element, 'update-x2-settings', button_text);
-        element.classList.remove('disable');
-      }, 300);
-      return;
-    };
-
-
-    displayNotification({
-      element: element,
-      text: `Settings saved`,
-      classes: ['green'],
-      delay: 3000,
-    });
-
-
-    isBuilderModal = false;
-    closeModal(null);
-  } catch (error) {
-    console.error(error);
-    displayNotification({
-      element: element,
-      text: `Error while saving builder settings: ${error.name}`,
-      classes: ['red'],
-      delay: 3000,
-    });
-  } finally {
-    setTimeout(() => {
-      endDownload(element, 'update-x2-settings', button_text);
-      element.classList.remove('disable');
-    }, 400);
-  };
-};
-
-function removeOption(element) {
-  const id = element.attributes.did?.value;
-
-
-  const elm = document.getElementById(id);
-  if (!elm) {
-    console.log(id, { element }, elm);
-    return;
-  };
-
-
-
-  elm.remove();
-};
-
 
 
 search_bar.addEventListener('input', handleInput);
@@ -1095,23 +1415,30 @@ search_bar.addEventListener('keydown', handleInput);
 window.addEventListener('click', (event) => {
   const t = event.target;
 
-
-  if (t.id == 'new___type') {
-    document.getElementById('new___options').parentElement.style.display = t.value == 'options' ? '' : 'none';
-  };
-
-
   if (t?.classList.value.includes('dl-button')) {
     const id = t.attributes.l?.value;
 
     startDownload(t);
     downloadCounter(t, id);
-    return
+    return;
+  };
+
+  if (t?.classList.value.includes('update-button')) {
+    const id = t.attributes.l?.value;
+    const name = t.attributes.n?.value;
+    const author = t.attributes.a?.value;
+    const confirmed = confirm(`Update counter «${name} by ${author}»?`);
+    if (!confirmed) return;
+
+    startDownload(t);
+    downloadCounter(t, id, true);
+    return;
   };
   if (t?.classList.value.includes(' delete-button')) return deleteCounter(t);
   if (t?.classList.value.includes(' open-button')) return openCounter(t);
   if (t?.classList.value.includes(' open-folder-button')) return openCounter(t);
 
+  // save tosu settings
   if (t?.classList.value.includes(' save-button')) {
     startDownload(t);
     return saveSettings(t);
@@ -1127,35 +1454,11 @@ window.addEventListener('click', (event) => {
     return;
   };
 
-  if (t?.classList.value.includes(' add-option-button')) {
-    builderNewOption(t);
-    return;
-  };
-
-  if (t?.classList.value.includes(' cancel-button')) {
-    isBuilderModal = false;
-    closeModal(null);
-    return;
-  };
-
-  if (t?.classList.value.includes(' update-settings-button')) {
-    startDownload(t);
-    return updateCounterSettings(t);
-  };
-
-  if (t?.classList.value.includes(' update-x2-settings-button')) {
-    return builderSaveSettings(t);
-  };
-
   if (t?.classList.value.includes('update-available')) {
     startUpdate(t);
     return;
   };
 
-  if (t?.classList.value.includes('remove-option-button')) {
-    removeOption(t);
-    return;
-  };
 
   if (t?.attributes.nf) return copyText(t);
 
@@ -1181,28 +1484,3 @@ document.addEventListener('keydown', (event) => {
     return;
   };
 });
-
-
-function renamer(element) {
-  const [id, field] = element.id.split('___');
-
-  const newID = (element.value || '').replace(/[^a-z0-9]/gmi, '');
-
-
-  if (document.getElementById(id)) document.getElementById(id).id = newID;
-  if (document.getElementById(`${id}___uniqueID`)) document.getElementById(`${id}___uniqueID`).id = `${newID}___uniqueID`;
-  if (document.getElementById(`${id}___type`)) document.getElementById(`${id}___type`).id = `${newID}___type`;
-  if (document.getElementById(`${id}___title`)) document.getElementById(`${id}___title`).id = `${newID}___title`;
-  if (document.getElementById(`${id}___description`)) document.getElementById(`${id}___description`).id = `${newID}___description`;
-  if (document.getElementById(`${id}___options`)) document.getElementById(`${id}___options`).id = `${newID}___options`;
-  if (document.getElementById(`${id}___value`)) document.getElementById(`${id}___value`).id = `${newID}___value`;
-  if (document.querySelector(`[did=${id}`)) document.querySelector(`[did=${id}`).setAttribute("did", newID);
-
-  element.value = newID;
-};
-
-function sanitize(element) {
-  const value = (element.value || '').replace(/[^a-z0-9]/gmi, '');
-
-  element.value = value;
-};

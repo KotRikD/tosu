@@ -3,7 +3,6 @@ import {
     config,
     getStaticPath,
     recursiveFilesSearch,
-    sanitizeText,
     wLogger
 } from '@tosu/common';
 import fs from 'fs';
@@ -12,7 +11,7 @@ import path from 'path';
 import semver from 'semver';
 
 import { getContentType } from '../utils';
-import { ICounter, ISettings, bodyPayload } from './counters.types';
+import { ICounter, bodyPayload } from './counters.types';
 import {
     authorHTML,
     authorLinksHTML,
@@ -28,7 +27,6 @@ import {
     noMoreCounters,
     resultItemHTML,
     saveSettingsButtonHTML,
-    selectHTML,
     settingsItemHTML,
     submitCounterHTML,
     textareaHTML
@@ -98,13 +96,14 @@ export function parseTXT(filePath: string) {
         : [];
 
     if (object.resolution)
-        object.resolution = object.resolution.map((r) => r.trim()) || [
+        object.resolution = object.resolution.map((r) => +r.trim()) || [
             'Any',
             'Any'
         ];
     else object.resolution = ['Any', 'Any'];
 
     if (object.authorlinks) object.authorlinks = object.authorlinks.split(',');
+    if (!object.version) object.version = '1.0';
 
     object.settings = Array.isArray(settings) ? settings : [];
 
@@ -112,136 +111,6 @@ export function parseTXT(filePath: string) {
     delete object.usecase;
 
     return object;
-}
-
-export function createSetting(setting: ISettings, value: any) {
-    const title = sanitizeText(setting.title);
-    const description = sanitizeText(setting.description);
-
-    switch (setting.type) {
-        case 'text': {
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'text')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'number': {
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'number')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'password': {
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'password')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'checkbox': {
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    checkboxHTML
-                        .replace('{TYPE}', 'text')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace(
-                            '{ADDON}',
-                            value
-                                ? `ucs t="${setting.type}" checked="true"`
-                                : `ucs t="${setting.type}"`
-                        )
-                        .replace('{VALUE}', `${value}`)
-                );
-        }
-
-        case 'color': {
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'color')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'options': {
-            const options = Array.isArray(setting.options)
-                ? setting.options
-                      .filter((r) => r)
-                      .map(
-                          (r) =>
-                              `<option ${(value || setting.value) === r ? 'selected="selected"' : ''} value="${r}">${r}</option>`
-                      )
-                      .join('\n')
-                : '';
-            return settingsItemHTML
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    selectHTML
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{OPTIONS}', options)
-                );
-        }
-    }
-
-    return '';
-}
-
-export function parseSettings(
-    settings: ISettings[],
-    folderName: string
-): string | Error {
-    let html = `<h2 class="ms-title"><span>Settings</span><span>«${decodeURI(folderName)}»</span></h2><div class="m-scroll">`;
-    for (let i = 0; i < settings.length; i++) {
-        const setting = settings[i];
-
-        if (setting.uniqueID === undefined || setting.uniqueID === null) {
-            continue;
-        }
-
-        html += createSetting(setting, setting.value);
-    }
-
-    html += '</div>'; // close scroll div
-
-    html += `<div class="ms-btns flexer si-btn">
-        <button class="button update-settings-button flexer" n="${decodeURI(folderName)}"><span>Update settings</span></button>
-        <button class="button cancel-button flexer"><span>Cancel</span></button>
-    </div>`;
-    return html;
 }
 
 export function saveSettings(folderName: string, payload: bodyPayload[]) {
@@ -255,7 +124,7 @@ export function saveSettings(folderName: string, payload: bodyPayload[]) {
     }
 
     fs.writeFileSync(
-        result.settingsValuesPath,
+        result.settingsValuesPath!,
         JSON.stringify(result.values),
         'utf8'
     );
@@ -295,7 +164,12 @@ function rebuildJSON({
                     : '';
 
             const name = nameHTML
-                .replace('{NAME}', `${item.name}${externalHasSettings}`)
+                .replace(
+                    '{NAME}',
+                    item.version
+                        ? `${item.name} v${item.version}${externalHasSettings}`
+                        : `${item.name}${externalHasSettings}`
+                )
                 .replace('{CLASS}', 'flexer');
             const author = authorHTML.replace('{AUTHOR}', item.author);
 
@@ -333,13 +207,17 @@ function rebuildJSON({
                         ? '500px'
                         : item.resolution[0] === -2
                           ? '100%'
-                          : `${item.resolution[0]}px`
+                          : item.resolution[0] <= 10
+                            ? '100%'
+                            : `${item.resolution[0]}px`
                 )
                 .replace(
                     '{HEIGHT}',
                     item.resolution[1] === -1
                         ? '500px'
-                        : `${item.resolution[1]}px`
+                        : item.resolution[0] <= 10
+                          ? '300px'
+                          : `${item.resolution[1]}px`
                 )
                 .replace('{NAME}', item.folderName);
 
@@ -381,9 +259,21 @@ function rebuildJSON({
                     ? `<button class="button settings-button flexer" n="${item.folderName}"><span>Settings</span></button>`
                     : '';
 
-            const button = item.downloadLink
-                ? `<div class="buttons-group indent-left"><button class="button dl-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Download</span></button></div>`
-                : `<div class="buttons-group flexer indent-left">
+            const updateBtn =
+                item._updatable === true
+                    ? `<button class="button update-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Update</span></button>`
+                    : '';
+            const downloadBtn =
+                item.downloadLink && item._downloaded !== true
+                    ? `<button class="button dl-button flexer" l="${item.downloadLink}" n="${item.name}" a="${item.author}"><span>Download</span></button>`
+                    : `<button class="button open-button flexer" n="${item.name} by ${item.author}"><span>Open Folder</span></button>`;
+
+            const externalButtons = `<div class="buttons-group flexer indent-left">
+                ${updateBtn}
+                ${downloadBtn}
+            </div>`;
+
+            const localButtons = `<div class="buttons-group flexer indent-left">
                 ${settingsBuilderBtn}
                 ${settingsBtn}
                 <button class="button open-button flexer" n="${item.folderName}"><span>Open Folder</span></button>
@@ -404,15 +294,16 @@ function rebuildJSON({
                     ? `<div class="ri-footer flexer">${metadata}</div>`
                     : '';
 
+            let itemStatus = '';
+            if (item._updatable === true) itemStatus = ' updatable';
+            else if (item._downloaded === true) itemStatus = ' downloaded';
+
             items += resultItemHTML
-                .replace(
-                    '{CLASS}',
-                    item._downloaded === true ? ' downloaded' : ''
-                )
+                .replace('{CLASS}', itemStatus)
                 .replace('{NAME}', name)
                 .replace('{AUTHOR}', author)
                 .replace('{AUTHOR_LINKS}', links)
-                .replace('{BUTTONS}', button)
+                .replace('{BUTTONS}', external ? externalButtons : localButtons)
                 .replace('{GALLERY}', gallery)
                 .replace('{FOOTER}', footer);
         } catch (error) {
@@ -424,7 +315,7 @@ function rebuildJSON({
     return items;
 }
 
-function getLocalCounters() {
+function getLocalCounters(): ICounter[] {
     try {
         const staticPath = getStaticPath();
 
@@ -472,6 +363,7 @@ function getLocalCounters() {
                         .replace(/^(\\\\\\|\\\\|\\|\/|\/\/)/, '')
                         .replace(/\\/gm, '/'),
                     name: path.basename(path.dirname(r)),
+                    version: '1.0',
                     author: 'local',
                     resolution: [-2, '400'],
                     authorlinks: [],
@@ -548,6 +440,15 @@ export async function buildExternalCounters(
             const find = exists.find(
                 (s) => s.name === r.name && s.author === r.author
             );
+
+            if (
+                r.version &&
+                find &&
+                r.version.toString().toLowerCase() !==
+                    find.version.toString().toLowerCase()
+            )
+                r._updatable = true;
+
             if (find) r._downloaded = true;
             return r;
         });

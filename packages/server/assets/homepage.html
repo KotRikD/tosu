@@ -1,97 +1,84 @@
 <html>
+  <head>
+    <title>tosu dashboard by ck v1.5</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="stylesheet" href="/assets/homepage.min.css" />
+    <link rel="stylesheet" href="/assets/icons/style.css" />
+    <link rel="stylesheet" href="/assets/fonts/style.css" />
+  </head>
 
-<head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-        rel="stylesheet">
-
-  <link rel="stylesheet" href="/assets/homepage.min.css">
-  <link rel="stylesheet" href="/assets/icons/style.css">
-  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-  <title>tosu dashboard</title>
-  <style>
-.si textarea {
-    font-size: .9em;
-    font-family: inherit;
-    color: var(--search-color-1);
-    width: 20em;
-    padding: .2em .6em;
-    background: var(--search-block);
-    outline: 0;
-    border-radius: .2em;
-    border: 0;
-    transition: .2s ease;
-    transition-property: filter, opacity;
-}
-  </style>
-</head>
-
-<body>
-  <header class="flexer">
-    <a href="https://tosu.app" target="_blank" class="flexer">
-      <i class="icon-link"></i>
-      website
-    </a>
-    <div>‧</div>
-    <a href="https://osuck.link/tosu" target="_blank" class="flexer">
-      <i class="icon-github"></i>
-      github
-    </a>
-    <div>‧</div>
-    <a href="https://osuck.link/tosu-discord" target="_blank" class="flexer">
-      <i class="icon-discord"></i>
-      discord
-    </a>
-    <label class="flexer devmode si-checkbox indent-left">
-      <input type="checkbox" name="devMode" id="devMode" value="false" />
-      <div>DevMode</div>
-      <span class="status"></span>
-      <span class="checkmark"></span>
-    </label>
-  </header>
-  <div class="update-available hidden">
-    <div>New version available. {OLD} => {NEW}</div>
-    <div>click here to run update</div>
-  </div>
-  <main>
-    <div class="links flexer">
-      <a href="https://github.com/KotRikD/tosu/wiki" target="_blank" class="flexer button open-button">
-        wikl
+  <body>
+    <header class="flexer">
+      <a href="https://tosu.app" target="_blank" class="flexer">
         <i class="icon-link"></i>
+        website
       </a>
-      <a target="_blank" class="flexer button open-folder-button" n="tosu.exe">
-        <i class="icon-folder"></i>
-        open tosu folder
+      <div>‧</div>
+      <a href="https://osuck.link/tosu" target="_blank" class="flexer">
+        <i class="icon-github"></i>
+        github
       </a>
-      <a href="/?tab=3" class="flexer button open-button indent-left">
-        How to install local counter
+      <div>‧</div>
+      <a href="https://osuck.link/tosu-discord" target="_blank" class="flexer">
+        <i class="icon-discord"></i>
+        discord
       </a>
+      <label class="flexer devmode si-checkbox indent-left">
+        <input type="checkbox" name="devMode" id="devMode" value="false" />
+        <div>DevMode</div>
+        <span class="status"></span>
+        <span class="checkmark"></span>
+      </label>
+    </header>
+    <div class="update-available hidden">
+      <div>New version available. {OLD} => {NEW}</div>
+      <div>click here to run update</div>
     </div>
-    <div class="tabs flexer">
-      <a href="/?tab=2" class="tab-item">
-        <i class="icon-settings"></i>
-        Settings
-      </a>
-      <a href="/?tab=0" class="indent-left tab-item">Installed</a>
-      <a href="/?tab=1" class="tab-item">Available</a>
-      <a class="tab-item"></a>
-      <!-- <a href="/?tab=3" class="tab-item">How to add counter</a> -->
-      <div class="indent-left">
-        <input class="search-bar" type="text" placeholder="search">
-        <!-- <a href="https://github.com/cyperdark/osu-counters/?tab=readme-ov-file#how-to-submit-pp-counter" target="_blank" class="button submit-button">Submit</a> -->
+    <main>
+      <div class="links flexer">
+        <a
+          href="https://github.com/KotRikD/tosu/wiki"
+          target="_blank"
+          class="flexer button open-button"
+        >
+          wiki
+          <i class="icon-link"></i>
+        </a>
+        <a
+          target="_blank"
+          class="flexer button open-folder-button"
+          n="tosu.exe"
+        >
+          <i class="icon-folder"></i>
+          open tosu folder
+        </a>
+        <a href="/?tab=3" class="flexer button open-button indent-left">
+          How to install local counter
+        </a>
       </div>
-    </div>
-    <div class="results">
-      {{LIST}}
-    </div>
-  </main>
-  <footer>
-    <span>created by <a href="https://kotrik.ru/" target="_blank">KotRik</a>, <a href="https://github.com/xxCherry"
-         target="_blank">Cherry</a> & <a href="https://osuck.net/" target="_blank">cyperdark</a></span>
-  </footer>
-  <script src="/assets/homepage.js" defer></script>
-</body>
-
-
+      <div class="tabs flexer">
+        <a href="/?tab=2" class="tab-item">
+          <i class="icon-settings"></i>
+          Settings
+        </a>
+        <a href="/?tab=0" class="indent-left tab-item">Installed</a>
+        <a href="/?tab=1" class="tab-item">Available</a>
+        <a class="tab-item"></a>
+        <div class="indent-left">
+          <input class="search-bar" type="text" placeholder="search" />
+        </div>
+      </div>
+      <div class="results">{{LIST}}</div>
+    </main>
+    <footer>
+      <span>
+        created by <a href="https://kotrik.ru/" target="_blank">KotRik</a>,
+        <a href="https://github.com/xxCherry" target="_blank">Cherry</a>
+        &
+        <a href="https://osuck.net/" target="_blank">cyperdark</a>
+      </span>
+    </footer>
+    <script src="/assets/vue.js"></script>
+    <script type="module" src="/assets/homepage.js"></script>
+  </body>
 </html>
