@@ -1,4 +1,4 @@
-import { createApp, ref } from './vue.js';
+const { createApp, ref } = Vue;
 
 
 const queryParams = new URLSearchParams(window.location.search);
@@ -516,14 +516,14 @@ const settingsBuilder = {
       const button_text = event.target.innerText;
       startDownload(event.target);
 
-      console.log({
-        uniqueID: item.uniqueID,
-        type: item.type,
-        title: item.title,
-        description: item.description,
-        options: item.options,
-        value: item.value,
-      });
+    //   console.log({
+    //     uniqueID: item.uniqueID,
+    //     type: item.type,
+    //     title: item.title,
+    //     description: item.description,
+    //     options: item.options,
+    //     value: item.value,
+    //   });
 
 
       settings.value.push({
@@ -639,7 +639,7 @@ const showSettings = {
       };
 
 
-      console.log(setting.value, props, props.values[setting.uniqueID]);
+    //   console.log(setting.value, props, props.values[setting.uniqueID]);
       if (props.values[setting.uniqueID]) {
 
         setting.value = props.values[setting.uniqueID];
