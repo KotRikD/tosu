@@ -28,7 +28,8 @@ import {
     resultItemHTML,
     saveSettingsButtonHTML,
     settingsItemHTML,
-    submitCounterHTML
+    submitCounterHTML,
+    textareaHTML
 } from './htmls';
 import { parseCounterSettings } from './parseSettings';
 
