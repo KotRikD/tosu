@@ -3,6 +3,7 @@ import {
     getCachePath,
     getProgramPath,
     getStaticPath,
+    platformResolver,
     unzip,
     wLogger,
     writeConfig
@@ -159,24 +160,12 @@ export default function buildBaseApi(server: Server) {
                     });
                 }
 
-                let command;
-                switch (process.platform) {
-                    case 'win32':
-                        command = `start "" "${folderPath}"`;
-                        break;
-                    case 'linux':
-                        command = `xdg-open "${folderPath}"`;
-                        break;
-                    case 'darwin':
-                        command = `open -R "${folderPath}"`;
-                        break;
-                }
-
                 wLogger.info(
                     `PP Counter opened: ${folderName} (${req.headers.referer})`
                 );
 
-                exec(command, (err) => {
+                const { platformCommand } = platformResolver(process.platform);
+                exec(`${platformCommand} "${folderPath}"`, (err) => {
                     if (err) {
                         wLogger.error('Error opening file explorer:');
                         wLogger.debug(err);
@@ -299,18 +288,23 @@ export default function buildBaseApi(server: Server) {
                         'dev/save',
                         body as any
                     );
+                    if (result instanceof Error) {
+                        wLogger.debug(`${folderName}-settings-update`, result);
 
-                    if (!(result instanceof Error)) {
-                        wLogger.info(
-                            `Settings re:created: ${folderName} (${req.headers.referer})`
-                        );
-
-                        fs.writeFileSync(
-                            result.settingsPath,
-                            JSON.stringify(result.settings),
-                            'utf8'
-                        );
+                        return sendJson(res, {
+                            error: result.name
+                        });
                     }
+
+                    wLogger.info(
+                        `Settings re:created: ${folderName} (${req.headers.referer})`
+                    );
+
+                    fs.writeFileSync(
+                        result.settingsPath!,
+                        JSON.stringify(result.settings),
+                        'utf8'
+                    );
 
                     return sendJson(res, { result: 'success' });
                 }
@@ -321,7 +315,7 @@ export default function buildBaseApi(server: Server) {
 
                 const html = saveSettings(folderName, body as any);
                 if (html instanceof Error) {
-                    wLogger.debug(`counter-${folderName}-settings-save`, html);
+                    wLogger.debug(`${folderName}-settings-save`, html);
 
                     return sendJson(res, {
                         error: html.name

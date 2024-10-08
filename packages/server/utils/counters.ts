@@ -3,7 +3,6 @@ import {
     config,
     getStaticPath,
     recursiveFilesSearch,
-    sanitizeText,
     wLogger
 } from '@tosu/common';
 import fs from 'fs';
@@ -12,7 +11,7 @@ import path from 'path';
 import semver from 'semver';
 
 import { getContentType } from '../utils';
-import { ICounter, ISettings, bodyPayload } from './counters.types';
+import { ICounter, bodyPayload } from './counters.types';
 import {
     authorHTML,
     authorLinksHTML,
@@ -28,10 +27,8 @@ import {
     noMoreCounters,
     resultItemHTML,
     saveSettingsButtonHTML,
-    selectHTML,
     settingsItemHTML,
-    submitCounterHTML,
-    textareaHTML
+    submitCounterHTML
 } from './htmls';
 import { parseCounterSettings } from './parseSettings';
 
@@ -115,157 +112,6 @@ export function parseTXT(filePath: string) {
     return object;
 }
 
-export function createSetting(setting: ISettings, value: any) {
-    const title = sanitizeText(setting.title);
-    const description = sanitizeText(setting.description);
-
-    switch (setting.type) {
-        case 'text': {
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'text')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'number': {
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'number')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'password': {
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'password')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'checkbox': {
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    checkboxHTML
-                        .replace('{TYPE}', 'text')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace(
-                            '{ADDON}',
-                            value
-                                ? `ucs t="${setting.type}" checked="true"`
-                                : `ucs t="${setting.type}"`
-                        )
-                        .replace('{VALUE}', `${value}`)
-                );
-        }
-
-        case 'color': {
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    inputHTML
-                        .replace('{TYPE}', 'color')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-
-        case 'options': {
-            const options = Array.isArray(setting.options)
-                ? setting.options
-                      .filter((r) => r)
-                      .map(
-                          (r) =>
-                              `<option ${(value || setting.value) === r ? 'selected="selected"' : ''} value="${r}">${r}</option>`
-                      )
-                      .join('\n')
-                : '';
-            return settingsItemHTML
-                .replace('{CLASSES}', '')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    selectHTML
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{OPTIONS}', options)
-                );
-        }
-
-        case 'textarea': {
-            return settingsItemHTML
-                .replace('{CLASSES}', 'txt-area')
-                .replace('{NAME}', title)
-                .replace('{DESCRIPTION}', description)
-                .replace(
-                    '{INPUT}',
-                    textareaHTML
-                        .replace('{TYPE}', 'text')
-                        .replace(/{ID}/gm, setting.uniqueID)
-                        .replace('{ADDON}', `ucs t="${setting.type}"`)
-                        .replace('{VALUE}', value)
-                );
-        }
-    }
-
-    return '';
-}
-
-export function parseSettings(
-    settings: ISettings[],
-    folderName: string
-): string | Error {
-    let html = `<h2 class="ms-title"><span>Settings</span><span>«${decodeURI(folderName)}»</span></h2><div class="m-scroll">`;
-    for (let i = 0; i < settings.length; i++) {
-        const setting = settings[i];
-
-        if (setting.uniqueID === undefined || setting.uniqueID === null) {
-            continue;
-        }
-
-        html += createSetting(setting, setting.value);
-    }
-
-    html += '</div>'; // close scroll div
-
-    html += `<div class="ms-btns flexer si-btn">
-        <button class="button update-settings-button flexer" n="${decodeURI(folderName)}"><span>Update settings</span></button>
-        <button class="button cancel-button flexer"><span>Cancel</span></button>
-    </div>`;
-    return html;
-}
-
 export function saveSettings(folderName: string, payload: bodyPayload[]) {
     const result = parseCounterSettings(
         folderName,
@@ -277,7 +123,7 @@ export function saveSettings(folderName: string, payload: bodyPayload[]) {
     }
 
     fs.writeFileSync(
-        result.settingsValuesPath,
+        result.settingsValuesPath!,
         JSON.stringify(result.values),
         'utf8'
     );

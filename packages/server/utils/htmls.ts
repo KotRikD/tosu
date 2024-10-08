@@ -60,10 +60,6 @@ export const checkboxHTML = `
 export const inputHTML =
     '<input type="{TYPE}" id="{ID}" {ADDON} value="{VALUE}">';
 
-export const textareaHTML = '<textarea id="{ID}" {ADDON}>{VALUE}</textarea>';
-
-export const selectHTML = `<select id="{ID}" {ADDON}>{OPTIONS}</select>`;
-
 export const saveSettingsButtonHTML =
     '<div class="flexer si-btn"><button class="button save-button flexer"><span>Save settings</span></button></div>';
 

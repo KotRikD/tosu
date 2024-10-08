@@ -56,38 +56,9 @@ export function parseCounterSettings(
 
         switch (action) {
             case 'parse':
-                for (let i = 0; i < settings.length; i++) {
-                    const setting = settings[i];
-
-                    const value = values[setting.uniqueID] ?? setting.value;
-                    switch (setting.type) {
-                        case 'number': {
-                            setting.value = isNaN(value) ? 0 : +value;
-                            break;
-                        }
-
-                        case 'checkbox': {
-                            if (typeof value === 'string') {
-                                setting.value = value === 'true';
-                                break;
-                            }
-
-                            setting.value = value;
-                            break;
-                        }
-
-                        default: {
-                            setting.value = value;
-                            break;
-                        }
-                    }
-                }
-
                 return {
                     settings,
-                    values,
-                    settingsPath,
-                    settingsValuesPath
+                    values
                 };
 
             case 'user/save':
@@ -135,9 +106,7 @@ export function parseCounterSettings(
                 }
 
                 return {
-                    settings,
                     values,
-                    settingsPath,
                     settingsValuesPath
                 };
 
@@ -170,12 +139,7 @@ export function parseCounterSettings(
                     }
                 }
 
-                return {
-                    settings,
-                    values,
-                    settingsPath,
-                    settingsValuesPath
-                };
+                return { values };
 
             case 'dev/save': {
                 if (!Array.isArray(payload)) {
@@ -215,8 +179,7 @@ export function parseCounterSettings(
 
                 return {
                     settings: payload,
-                    settingsPath,
-                    settingsValuesPath
+                    settingsPath
                 };
             }
         }
