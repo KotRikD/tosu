@@ -1,9 +1,9 @@
+import rosu from '@kotrikd/rosu-pp';
 import { config, wLogger } from '@tosu/common';
 import fs from 'fs';
 import { Beatmap as ParsedBeatmap } from 'osu-classes';
 import { BeatmapDecoder } from 'osu-parsers';
 import path from 'path';
-import rosu from 'rosu-pp-js';
 
 import { BeatmapStrains } from '@/api/types/v1';
 import { AbstractEntity } from '@/entities/AbstractEntity';
