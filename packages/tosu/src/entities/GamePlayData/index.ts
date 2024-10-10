@@ -1,5 +1,5 @@
+import rosu from '@kotrikd/rosu-pp';
 import { config, wLogger } from '@tosu/common';
-import rosu from 'rosu-pp-js';
 import { Process } from 'tsprocess/dist/process';
 
 import { AbstractEntity } from '@/entities/AbstractEntity';

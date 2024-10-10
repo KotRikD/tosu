@@ -71,15 +71,15 @@ importers:
 
   packages/server:
     dependencies:
+      '@kotrikd/rosu-pp':
+        specifier: 1.2.0
+        version: 1.2.0
       '@tosu/common':
         specifier: workspace:*
         version: link:../common
       '@tosu/updater':
         specifier: workspace:*
         version: link:../updater
-      rosu-pp-js:
-        specifier: ^1.0.2
-        version: 1.0.2
       semver:
         specifier: ^7.5.4
         version: 7.5.4
@@ -93,6 +93,9 @@ importers:
 
   packages/tosu:
     dependencies:
+      '@kotrikd/rosu-pp':
+        specifier: 1.2.0
+        version: 1.2.0
       '@tosu/common':
         specifier: workspace:*
         version: link:../common
@@ -126,9 +129,6 @@ importers:
       resedit:
         specifier: ^2.0.0
         version: 2.0.0
-      rosu-pp-js:
-        specifier: ^1.0.2
-        version: 1.0.2
       semver:
         specifier: ^7.5.4
         version: 7.5.4
@@ -150,7 +150,7 @@ importers:
         version: 3.1.1
       ts-node:
         specifier: ^10.9.1
-        version: 10.9.1(@types/node@18.18.11)(typescript@5.3.3)
+        version: 10.9.1(@types/node@20.11.1)(typescript@5.3.3)
 
   packages/tsprocess:
     dependencies:
@@ -447,6 +447,10 @@ packages:
       '@jridgewell/resolve-uri': 3.1.1
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
+
+  /@kotrikd/rosu-pp@1.2.0:
+    resolution: {integrity: sha512-atpo7ncev6cRD0VvIWfEbMRdbiJZ15JdGAnL3r9ss0YlHwOKIf7gASZxh1c4IUGIX0ok/osB7qIQiSDunWeLuw==}
+    dev: false
 
   /@nodelib/fs.scandir@2.1.5:
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -3987,10 +3991,6 @@ packages:
       glob: 7.2.3
     dev: true
 
-  /rosu-pp-js@1.0.2:
-    resolution: {integrity: sha512-NG7ulJOiNn5s4ZXP2WMOoBwr7fWATsLRJH0LW4EjLtuqVJjKgrwe8g5NCRdbSGgBJVJX2X1X5XplcRXZ3QaInw==}
-    dev: false
-
   /run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
     dependencies:
@@ -4487,7 +4487,7 @@ packages:
       typescript: 5.3.3
     dev: true
 
-  /ts-node@10.9.1(@types/node@18.18.11)(typescript@5.3.3):
+  /ts-node@10.9.1(@types/node@20.11.1)(typescript@5.3.3):
     resolution: {integrity: sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==}
     hasBin: true
     peerDependencies:
@@ -4506,7 +4506,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 18.18.11
+      '@types/node': 20.11.1
       acorn: 8.11.2
       acorn-walk: 8.3.0
       arg: 4.1.3

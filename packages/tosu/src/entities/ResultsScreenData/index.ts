@@ -1,5 +1,5 @@
+import rosu from '@kotrikd/rosu-pp';
 import { wLogger } from '@tosu/common';
-import rosu from 'rosu-pp-js';
 
 import { AbstractEntity } from '@/entities/AbstractEntity';
 import { OsuInstance } from '@/objects/instanceManager/osuInstance';

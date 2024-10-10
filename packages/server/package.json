@@ -12,7 +12,7 @@
   "dependencies": {
     "@tosu/common": "workspace:*",
     "@tosu/updater": "workspace:*",
-    "rosu-pp-js": "^1.0.2",
+    "@kotrikd/rosu-pp": "1.2.0",
     "semver": "^7.5.4",
     "ws": "^8.16.0"
   },
